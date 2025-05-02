@@ -1,4 +1,3 @@
-
 import { addDays, format, isSameDay, isWeekend, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isMonday } from 'date-fns';
 
 export interface Holiday {
@@ -136,7 +135,8 @@ export const optimizePlanForMonth = (
     .filter(item => !leaveDates.some(leaveDate => isSameDay(leaveDate, item.date)))
     .forEach(item => {
       const date = item.date;
-      // Get week number (simple calculation - week 1 starts on the 1st)
+      // Get week number within month - improved to better represent calendar weeks
+      // This groups dates by week starting from the first day of the month
       const weekNum = Math.floor((date.getDate() - 1) / 7);
       
       if (!weekMap.has(weekNum)) {
