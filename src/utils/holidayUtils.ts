@@ -1,4 +1,5 @@
-import { addDays, format, isSameDay, isWeekend } from 'date-fns';
+
+import { addDays, format, isSameDay, isWeekend, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isMonday } from 'date-fns';
 
 export interface Holiday {
   date: Date;
@@ -47,19 +48,56 @@ export const isHoliday = (date: Date, holidays: Holiday[]): Holiday | undefined 
 
 export const isLongWeekendCandidate = (date: Date, holidays: Holiday[]): boolean => {
   // Check if the day is Friday or Monday
-  const dayOfWeek = date.getDay();
-  if (dayOfWeek !== 1 && dayOfWeek !== 5) return false;
+  if (!isMonday(date) && !isFriday(date)) return false;
   
   // Check if the adjacent weekend connects to a holiday
-  if (dayOfWeek === 5) {
+  if (isFriday(date)) {
     // Friday - check if Monday is a holiday
     const monday = addDays(date, 3);
-    return holidays.some(h => isSameDay(h.date, monday));
+    return holidays.some(h => isSameDay(h.date, monday)) || isHoliday(monday, holidays) !== undefined;
   } else {
     // Monday - check if Friday is a holiday
     const friday = addDays(date, -3);
-    return holidays.some(h => isSameDay(h.date, friday));
+    return holidays.some(h => isSameDay(h.date, friday)) || isHoliday(friday, holidays) !== undefined;
   }
+};
+
+// Score a date for leave potential
+const scoreDateForLeave = (date: Date, holidays: Holiday[]): number => {
+  let score = 0;
+  
+  // Skip weekends and holidays (we don't need to take leave on these days)
+  if (isWeekend(date) || isHoliday(date, holidays)) {
+    return -1; // Not a candidate for leave
+  }
+  
+  // Check surrounding days (before and after)
+  for (let offset = -2; offset <= 2; offset++) {
+    if (offset === 0) continue; // Skip the current day
+    
+    const checkDate = addDays(date, offset);
+    
+    // Adjacent day is a holiday or weekend
+    if (isHoliday(checkDate, holidays) || isWeekend(checkDate)) {
+      // Immediate adjacent days (±1) are more valuable
+      score += Math.abs(offset) === 1 ? 10 : 5;
+    }
+  }
+  
+  // Check for sandwiched days (bridge days)
+  const prevDay = addDays(date, -1);
+  const nextDay = addDays(date, 1);
+  if ((isHoliday(prevDay, holidays) || isWeekend(prevDay)) && 
+      (isHoliday(nextDay, holidays) || isWeekend(nextDay))) {
+    score += 15; // Bridging two off days is very valuable
+  }
+  
+  // Mondays and Fridays are generally better for extending weekends
+  if (isMonday(date) || isFriday(date)) {
+    score += 8;
+  }
+  
+  return score;
 };
 
 export const optimizePlanForMonth = (
@@ -69,69 +107,63 @@ export const optimizePlanForMonth = (
   totalLeaves: number,
   holidays: Holiday[]
 ): OptimizedPlan => {
-  // Simple optimization algorithm for demo purposes
-  // In a real app, this would be much more sophisticated
+  const startDate = startOfMonth(new Date(year, month, 1));
+  const endDate = endOfMonth(startDate);
+  const allDaysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
   
-  const leaveDates: Date[] = [];
+  // Score each workday for leave potential
+  const scoredDates = allDaysInMonth
+    .map(date => ({
+      date,
+      isWorkday: !isWeekend(date) && !isHoliday(date, holidays),
+      score: scoreDateForLeave(date, holidays)
+    }))
+    .filter(item => item.isWorkday);
+  
+  // Sort by score (highest first)
+  scoredDates.sort((a, b) => b.score - a.score);
+  
+  // Select days for leave (highest scores first, up to totalLeaves)
+  const leaveDates = scoredDates
+    .slice(0, totalLeaves)
+    .map(item => item.date)
+    .sort((a, b) => a.getTime() - b.getTime()); // Sort chronologically
+  
+  // Group remaining workdays by week
+  const weekMap = new Map<number, Date[]>();
+  
+  scoredDates
+    .filter(item => !leaveDates.some(leaveDate => isSameDay(leaveDate, item.date)))
+    .forEach(item => {
+      const date = item.date;
+      // Get week number (simple calculation - week 1 starts on the 1st)
+      const weekNum = Math.floor((date.getDate() - 1) / 7);
+      
+      if (!weekMap.has(weekNum)) {
+        weekMap.set(weekNum, []);
+      }
+      weekMap.get(weekNum)!.push(date);
+    });
+  
+  // For each week, select the best days for WFH up to maxWfhPerWeek
   const wfhDates: Date[] = [];
   
-  // Find long weekends and bridge holidays
-  for (let d = 1; d <= 31; d++) {
-    const currentDate = new Date(year, month, d);
+  weekMap.forEach((datesInWeek) => {
+    // Sort by score within each week
+    datesInWeek.sort((a, b) => 
+      scoreDateForLeave(b, holidays) - scoreDateForLeave(a, holidays)
+    );
     
-    // Stop if we move to the next month
-    if (currentDate.getMonth() !== month) break;
-    
-    // Skip weekends and holidays
-    if (isWeekend(currentDate) || isHoliday(currentDate, holidays)) continue;
-    
-    // Check if this is a good candidate for leave (next to a holiday)
-    let isGoodLeaveDay = false;
-    
-    // Check day before and after
-    const dayBefore = addDays(currentDate, -1);
-    const dayAfter = addDays(currentDate, 1);
-    
-    if (isHoliday(dayBefore, holidays) || isHoliday(dayAfter, holidays)) {
-      isGoodLeaveDay = true;
-    }
-    
-    // Bridge days (in between holidays/weekends)
-    if (!isGoodLeaveDay) {
-      const twoDaysBefore = addDays(currentDate, -2);
-      const twoDaysAfter = addDays(currentDate, 2);
-      
-      if ((isHoliday(dayBefore, holidays) || isWeekend(dayBefore)) && 
-          (isHoliday(dayAfter, holidays) || isWeekend(dayAfter))) {
-        isGoodLeaveDay = true;
-      }
-    }
-    
-    // Apply leave if it's a good day and we have leaves left
-    if (isGoodLeaveDay && leaveDates.length < totalLeaves) {
-      leaveDates.push(currentDate);
-    } 
-    // Otherwise, consider for WFH
-    else if (leaveDates.length < totalLeaves) {
-      // Check if we haven't used too many WFH days this week
-      const weekStart = new Date(currentDate);
-      weekStart.setDate(currentDate.getDate() - currentDate.getDay() + 1); // Monday of this week
-      
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6); // Sunday of this week
-      
-      const wfhDaysThisWeek = wfhDates.filter(date => 
-        date >= weekStart && date <= weekEnd
-      ).length;
-      
-      if (wfhDaysThisWeek < maxWfhPerWeek) {
-        wfhDates.push(currentDate);
-      }
-    }
-  }
+    // Take up to maxWfhPerWeek days per week
+    const wfhForThisWeek = datesInWeek.slice(0, maxWfhPerWeek);
+    wfhDates.push(...wfhForThisWeek);
+  });
+  
+  // Sort WFH dates chronologically
+  wfhDates.sort((a, b) => a.getTime() - b.getTime());
   
   // Calculate metrics
-  const weekendAndHolidayCount = getPhilippineHolidays().filter(h => 
+  const weekendAndHolidayCount = holidays.filter(h => 
     h.date.getMonth() === month && h.date.getFullYear() === year
   ).length + countWeekendsInMonth(month, year);
   
@@ -151,24 +183,29 @@ const calculateConsecutiveDaysOff = (
   wfhDates: Date[], 
   holidays: Holiday[]
 ): number => {
-  // Find the longest streak of consecutive days off
-  let maxStreak = 0;
-  let currentStreak = 0;
+  // Get all days in the month
+  const startDate = startOfMonth(new Date(year, month, 1));
+  const endDate = endOfMonth(startDate);
+  const allDaysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
   
-  // Check each day of the month
-  for (let d = 1; d <= 31; d++) {
-    const currentDate = new Date(year, month, d);
+  // Mark all days as working or non-working
+  const daysOffMap = new Map<number, boolean>();
+  
+  allDaysInMonth.forEach(date => {
+    const isOff = isWeekend(date) || 
+                 isHoliday(date, holidays) !== undefined ||
+                 leaveDates.some(leave => isSameDay(leave, date)) ||
+                 wfhDates.some(wfh => isSameDay(wfh, date));
     
-    // Stop if we move to the next month
-    if (currentDate.getMonth() !== month) break;
-    
-    // Is this a day off? (weekend, holiday, leave, or WFH)
-    const isDayOff = isWeekend(currentDate) || 
-                     isHoliday(currentDate, holidays) !== undefined ||
-                     leaveDates.some(date => isSameDay(date, currentDate)) ||
-                     wfhDates.some(date => isSameDay(date, currentDate));
-    
-    if (isDayOff) {
+    daysOffMap.set(date.getTime(), isOff);
+  });
+  
+  // Find longest streak
+  let currentStreak = 0;
+  let maxStreak = 0;
+  
+  for (const date of allDaysInMonth) {
+    if (daysOffMap.get(date.getTime())) {
       currentStreak++;
       maxStreak = Math.max(maxStreak, currentStreak);
     } else {
@@ -180,15 +217,11 @@ const calculateConsecutiveDaysOff = (
 };
 
 const countWeekendsInMonth = (month: number, year: number): number => {
-  let count = 0;
-  const lastDay = new Date(year, month + 1, 0).getDate(); // Last day of month
+  const startDate = startOfMonth(new Date(year, month, 1));
+  const endDate = endOfMonth(startDate);
+  const allDaysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
   
-  for (let d = 1; d <= lastDay; d++) {
-    const date = new Date(year, month, d);
-    if (isWeekend(date)) count++;
-  }
-  
-  return count;
+  return allDaysInMonth.filter(date => isWeekend(date)).length;
 };
 
 export const getFormattedDateRange = (dates: Date[]): string => {
