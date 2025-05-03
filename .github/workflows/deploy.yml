@@ -1,58 +1,37 @@
 # .github/workflows/deploy.yml
-name: Deploy to GitHub Pages
+name: Deploy cuti-ph-optimizer to GitHub Pages
 
 on:
   push:
     branches:
-      - main # Or your default branch
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+      - main
+  workflow_dispatch:      # Allow manual trigger
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Use a recent LTS version
+          node-version: 18
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build project
+      - name: Build
         run: npm run build
-        env:
-          # If your vite config needs a base path for GitHub Pages (e.g., /repo-name/)
-          # uncomment the following line and set it appropriately.
-          BASE_URL: /cuti-ph-optimizer/ # Set the base path to match the actual repository name
-          # Then ensure your vite.config.js or vite.config.ts reads this:
-          # import { defineConfig } from 'vite';
-          # export default defineConfig({
-          #   base: process.env.BASE_URL || '/',
-          #   # ... other config
-          # });
 
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: ./dist # Default Vite output directory
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true
