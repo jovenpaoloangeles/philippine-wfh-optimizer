@@ -1,4 +1,4 @@
-import { addDays, format, isSameDay, isWeekend, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isMonday } from 'date-fns';
+import { addDays, format, isSameDay, isWeekend, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isMonday, getWeek } from 'date-fns';
 
 export interface Holiday {
   date: Date;
@@ -128,16 +128,16 @@ export const optimizePlanForMonth = (
     .map(item => item.date)
     .sort((a, b) => a.getTime() - b.getTime()); // Sort chronologically
   
-  // Group remaining workdays by week
+  // Group remaining workdays by calendar week
+  // Use proper week numbering by using ISO week numbers
   const weekMap = new Map<number, Date[]>();
   
   scoredDates
     .filter(item => !leaveDates.some(leaveDate => isSameDay(leaveDate, item.date)))
     .forEach(item => {
       const date = item.date;
-      // Get week number within month - improved to better represent calendar weeks
-      // This groups dates by week starting from the first day of the month
-      const weekNum = Math.floor((date.getDate() - 1) / 7);
+      // Use getWeek to get ISO week number for consistent calendar weeks
+      const weekNum = getWeek(date);
       
       if (!weekMap.has(weekNum)) {
         weekMap.set(weekNum, []);
