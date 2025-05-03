@@ -1,0 +1,58 @@
+# .github/workflows/deploy.yml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Or your default branch
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Use a recent LTS version
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+        env:
+          # If your vite config needs a base path for GitHub Pages (e.g., /repo-name/)
+          # uncomment the following line and set it appropriately.
+          BASE_URL: /philippine-wfh-optimizer/ # Set the desired base path
+          # Then ensure your vite.config.js or vite.config.ts reads this:
+          # import { defineConfig } from 'vite';
+          # export default defineConfig({
+          #   base: process.env.BASE_URL || '/',
+          #   # ... other config
+          # });
+
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist # Default Vite output directory
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

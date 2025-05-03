@@ -1,73 +1,111 @@
-# Welcome to your Lovable project
+# Philippine Holiday Optimizer 🇵🇭
 
-## Project info
+A web application designed to help users in the Philippines strategically plan their leave days and work-from-home (WFH) schedule around public holidays to maximize consecutive time off. It visualizes holidays for a selected month and year (currently focused on 2025 data) and provides an optimized schedule based on user preferences.
 
-**URL**: https://lovable.dev/projects/61c209c0-6412-4096-96cb-51dd71ba065e
+![Philippine Holiday Optimizer Screenshot](public/Screenshot.jpeg)
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+*   **Monthly Calendar View:** Displays a calendar for the selected month and year.
+*   **Holiday Highlighting:** Clearly marks Regular Holidays (paid) and Special Non-working Holidays.
+*   **Optimized Schedule Visualization:** Shows recommended Leave days and Work-From-Home (WFH) days directly on the calendar.
+*   **User Configuration:**
+    *   Set the maximum number of WFH days allowed per week.
+    *   Input the total number of available leave credits.
+    *   Select the target month and year (currently defaults and data focus on 2025).
+*   **Optimization Results:**
+    *   Calculates the maximum number of consecutive days off achievable with the plan.
+    *   Shows the total number of days off (weekends + holidays + leave + WFH).
+    *   Lists the specific dates recommended for Leave and WFH.
+*   **Informative Legend:** Explains the color-coding and badges used in the calendar.
+*   **Responsive Design:** Adapts to different screen sizes.
 
-**Use Lovable**
+## How it Works
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/61c209c0-6412-4096-96cb-51dd71ba065e) and start prompting.
+The optimizer uses a scoring system based on the 2025 Philippine holiday list:
 
-Changes made via Lovable will be committed automatically to this repo.
+1.  **Holiday Data:** Uses a predefined list of 2025 Regular and Special Non-working holidays.
+2.  **Leave Day Scoring:** Potential workdays are scored based on their potential to create long weekends or bridge gaps:
+    *   Days adjacent (immediately before/after) to weekends or holidays get higher scores.
+    *   "Bridge days" (workdays falling between two off-days like a weekend and a holiday) receive the highest scores.
+    *   Mondays and Fridays generally get a boost for extending weekends.
+3.  **Leave Allocation:** The highest-scoring workdays are recommended as leave days, up to the user's specified limit.
+4.  **WFH Allocation:** Remaining workdays are considered for WFH. The optimizer prioritizes days that are strategically beneficial (e.g., adjacent to off days) and distributes them across the weeks, respecting the user's maximum WFH days per week limit.
+5.  **Metrics Calculation:** Calculates the longest consecutive block of off-days (weekends, holidays, leave, WFH) and the total number of off-days in the month based on the generated plan.
 
-**Use your preferred IDE**
+*Note: The current holiday data and optimization logic are based on the year 2025.*
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Technology Stack
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+*   **Frontend Framework:** React
+*   **Build Tool:** Vite
+*   **Language:** TypeScript
+*   **Styling:** Tailwind CSS
+*   **UI Components:** shadcn/ui (built on Radix UI)
+*   **Icons:** Lucide React
+*   **Date Manipulation:** `date-fns`
+*   **Routing:** React Router DOM
+*   **State Management:** React Hooks (`useState`, `useEffect`)
 
-Follow these steps:
+## Getting Started
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+To run this project locally:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1.  **Clone the repository:**
+    ```bash
+    git clone <your-repository-url>
+    cd cuti-ph-optimizer
+    ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    # or
+    # yarn install
+    # or
+    # pnpm install
+    ```
+3.  **Start the development server:**
+    ```bash
+    npm run dev
+    # or
+    # yarn dev
+    # or
+    # pnpm dev
+    ```
+4.  Open your browser and navigate to `http://localhost:8080` (or the port specified in your console).
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Available Scripts
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+In the project directory, you can run:
 
-**Edit a file directly in GitHub**
+*   `npm run dev`: Runs the app in development mode with hot reloading.
+*   `npm run build`: Builds the app for production to the `dist` folder.
+*   `npm run lint`: Lints the codebase using ESLint.
+*   `npm run preview`: Serves the production build locally for testing.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Project Structure
 
-**Use GitHub Codespaces**
+cuti-ph-optimizer/
+├── public/             # Static assets (favicon, images, robots.txt)
+├── src/
+│   ├── components/     # Reusable UI components (ControlPanel, Calendar, Results, UI primitives)
+│   ├── hooks/          # Custom React hooks (use-toast, use-mobile)
+│   ├── lib/            # Utility functions (cn)
+│   ├── pages/          # Page components (Index, NotFound)
+│   ├── utils/          # Core logic (holidayUtils)
+│   ├── App.tsx         # Main application component with routing
+│   ├── main.tsx        # Application entry point
+│   └── index.css       # Global styles and Tailwind directives
+├── .eslintrc.js        # ESLint configuration
+├── tailwind.config.ts  # Tailwind CSS configuration
+├── vite.config.ts      # Vite configuration
+├── package.json        # Project metadata and dependencies
+└── README.md           # This file
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Contributing
 
-## What technologies are used for this project?
+Contributions are welcome! Please feel free to submit a Pull Request or open an Issue.
 
-This project is built with:
+## License
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/61c209c0-6412-4096-96cb-51dd71ba065e) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+*(Specify your license here, e.g., MIT License)*
