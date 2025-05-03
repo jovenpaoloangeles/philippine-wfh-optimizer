@@ -10,6 +10,13 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  build: {
+    // Ensure assets are properly referenced
+    assetsDir: 'assets',
+    sourcemap: false,
+    // Improve compatibility
+    target: 'es2015',
+  },
   plugins: [
     react(),
     mode === 'development' &&
