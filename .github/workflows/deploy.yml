@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-name: Deploy cuti-ph-optimizer to GitHub Pages
+name: Deploy philippine-wfh-optimizer to GitHub Pages
 
 on:
   push:

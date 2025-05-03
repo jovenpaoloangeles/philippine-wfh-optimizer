@@ -4,7 +4,7 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/cuti-ph-optimizer/',  // Base path for GitHub Pages
+  base: '/philippine-wfh-optimizer/',  // Base path for GitHub Pages
   plugins: [react()],
   resolve: {
     alias: {
