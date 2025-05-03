@@ -14,30 +14,51 @@ export interface OptimizedPlan {
   totalDaysOff: number;
 }
 
+// Define the Holiday type (assuming it's defined elsewhere, e.g., in a types file)
+// interface Holiday {
+//  date: Date;
+//  name: string;
+//  isSpecial: boolean; // false for Regular, true for Special Non-working
+// }
+
 // Philippine holidays for 2025
+// Based on Proclamation No. 727, s. 2024 and other relevant proclamations
 export const getPhilippineHolidays = (): Holiday[] => {
   return [
-    // Regular Holidays
-    { date: new Date(2025, 0, 1), name: "New Year's Day", isSpecial: false },
-    { date: new Date(2025, 3, 9), name: "Day of Valor", isSpecial: false },
-    { date: new Date(2025, 3, 17), name: "Maundy Thursday", isSpecial: false },
-    { date: new Date(2025, 3, 18), name: "Good Friday", isSpecial: false },
-    { date: new Date(2025, 4, 1), name: "Labor Day", isSpecial: false },
-    { date: new Date(2025, 5, 12), name: "Independence Day", isSpecial: false },
-    { date: new Date(2025, 10, 30), name: "Bonifacio Day", isSpecial: false },
-    { date: new Date(2025, 11, 25), name: "Christmas Day", isSpecial: false },
-    { date: new Date(2025, 11, 30), name: "Rizal Day", isSpecial: false },
-    
-    // Special Non-working Holidays
-    { date: new Date(2025, 1, 25), name: "EDSA People Power Revolution", isSpecial: true },
-    { date: new Date(2025, 3, 19), name: "Black Saturday", isSpecial: true },
-    { date: new Date(2025, 3, 21), name: "Eid al-Fitr", isSpecial: true },
-    { date: new Date(2025, 7, 21), name: "Ninoy Aquino Day", isSpecial: true },
-    { date: new Date(2025, 10, 1), name: "All Saints' Day", isSpecial: true },
-    { date: new Date(2025, 10, 2), name: "All Souls' Day", isSpecial: true },
-    { date: new Date(2025, 11, 8), name: "Feast of the Immaculate Conception", isSpecial: true },
-    { date: new Date(2025, 11, 24), name: "Christmas Eve", isSpecial: true },
-    { date: new Date(2025, 11, 31), name: "New Year's Eve", isSpecial: true },
+    // Regular Holidays [4, 7]
+    // Note: Employees are typically paid 100% even if unworked, and 200% if worked. [7]
+    { date: new Date(2025, 0, 1), name: "New Year's Day", isSpecial: false }, // January 1 [4, 7]
+    { date: new Date(2025, 3, 9), name: "Araw ng Kagitingan", isSpecial: false }, // April 9 [4, 7]
+    { date: new Date(2025, 3, 17), name: "Maundy Thursday", isSpecial: false }, // April 17 [4, 7]
+    { date: new Date(2025, 3, 18), name: "Good Friday", isSpecial: false }, // April 18 [4, 7]
+    { date: new Date(2025, 4, 1), name: "Labor Day", isSpecial: false }, // May 1 [4, 7]
+    { date: new Date(2025, 5, 12), name: "Independence Day", isSpecial: false }, // June 12 [4, 7]
+    { date: new Date(2025, 7, 25), name: "National Heroes Day", isSpecial: false }, // Last Monday of August [4, 7]
+    { date: new Date(2025, 10, 30), name: "Bonifacio Day", isSpecial: false }, // November 30 (Actual day) [4, 7]
+    // Note: Observance of Bonifacio Day might be moved. Proclamation 727 lists Nov 30 (Sunday). Check for potential updates closer to the date.
+    { date: new Date(2025, 11, 25), name: "Christmas Day", isSpecial: false }, // December 25 [4, 7]
+    { date: new Date(2025, 11, 30), name: "Rizal Day", isSpecial: false }, // December 30 [4, 7]
+
+    // Special Non-working Days [4, 5, 7]
+    // Note: Employees are typically paid 130% if worked, "no work, no pay" applies if unworked, unless there's a favorable company policy. [7]
+    { date: new Date(2025, 0, 29), name: "Chinese New Year", isSpecial: true }, // January 29 [4, 5]
+    // Note: EDSA People Power Revolution Anniversary (Feb 25) was declared a Special Working Day for 2025 [4, 7]
+    // { date: new Date(2025, 1, 25), name: "EDSA People Power Revolution Anniversary", isSpecial: true }, // February 25 - Now a Special WORKING day [4]
+    { date: new Date(2025, 3, 19), name: "Black Saturday", isSpecial: true }, // April 19 [4, 5]
+    { date: new Date(2025, 7, 21), name: "Ninoy Aquino Day", isSpecial: true }, // August 21 [4, 5]
+    { date: new Date(2025, 9, 31), name: "All Saints' Day Eve", isSpecial: true }, // October 31 (Additional Special Non-working day) [4, 5]
+    { date: new Date(2025, 10, 1), name: "All Saints' Day", isSpecial: true }, // November 1 [4, 5]
+    { date: new Date(2025, 11, 8), name: "Feast of the Immaculate Conception of Mary", isSpecial: true }, // December 8 [4, 5]
+    { date: new Date(2025, 11, 24), name: "Christmas Eve", isSpecial: true }, // December 24 (Additional Special Non-working day) [4, 5]
+    { date: new Date(2025, 11, 31), name: "Last Day of the Year", isSpecial: true }, // December 31 [4, 5]
+
+    // Islamic Holidays - Dates are tentative and subject to official proclamation [4, 6]
+    // The National Commission on Muslim Filipinos (NCMF) recommends the dates based on the Islamic calendar. [4]
+    { date: new Date(2025, 3, 1), name: "Eid'l Fitr", isSpecial: false }, // Tentative: April 1 [3, 6] or May 31 [2] - Marked as Regular Holiday in some lists [3, 6] but needs final proclamation
+    { date: new Date(2025, 5, 6), name: "Eid'l Adha", isSpecial: false }, // Tentative: June 6 [2, 8] - Marked as Regular Holiday but needs final proclamation
+
+    // Other Special Non-working Days declared via separate proclamations
+    { date: new Date(2025, 6, 27), name: "Iglesia ni Cristo Founding Anniversary", isSpecial: true }, // July 27 (Declared by Proclamation No. 729) [3, 4]
   ];
 };
 
