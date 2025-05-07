@@ -55,6 +55,7 @@ export const getPhilippineHolidays = (): Holiday[] => {
     // Islamic Holidays - Dates are tentative and subject to official proclamation [4, 6]
     // The National Commission on Muslim Filipinos (NCMF) recommends the dates based on the Islamic calendar. [4]
     { date: new Date(2025, 3, 1), name: "Eid'l Fitr", isSpecial: false }, // Tentative: April 1 [3, 6] or May 31 [2] - Marked as Regular Holiday in some lists [3, 6] but needs final proclamation
+    { date: new Date(2025, 4, 12), name: "Election Day", isSpecial: true }, // Tentative: April 1 [3, 6] or May 31 [2] - Marked as Regular Holiday in some lists [3, 6] but needs final proclamation
     { date: new Date(2025, 5, 6), name: "Eid'l Adha", isSpecial: false }, // Tentative: June 6 [2, 8] - Marked as Regular Holiday but needs final proclamation
 
     // Other Special Non-working Days declared via separate proclamations
