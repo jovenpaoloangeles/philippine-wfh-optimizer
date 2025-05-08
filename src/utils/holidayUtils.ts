@@ -1,4 +1,4 @@
-import { addDays, format, isSameDay, isWeekend, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isMonday, getWeek } from 'date-fns';
+import { addDays, format, isSameDay, isWeekend, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isMonday, getISOWeek } from 'date-fns';
 
 export interface Holiday {
   date: Date;
@@ -149,37 +149,226 @@ export const optimizePlanForMonth = (
     .slice(0, totalLeaves)
     .map(item => item.date)
     .sort((a, b) => a.getTime() - b.getTime()); // Sort chronologically
-  
-  // Group remaining workdays by calendar week
-  // Use proper week numbering by using ISO week numbers
-  const weekMap = new Map<number, Date[]>();
-  
-  scoredDates
-    .filter(item => !leaveDates.some(leaveDate => isSameDay(leaveDate, item.date)))
-    .forEach(item => {
-      const date = item.date;
-      // Use getWeek to get ISO week number for consistent calendar weeks
-      const weekNum = getWeek(date);
-      
-      if (!weekMap.has(weekNum)) {
-        weekMap.set(weekNum, []);
-      }
-      weekMap.get(weekNum)!.push(date);
-    });
-  
-  // For each week, select the best days for WFH up to maxWfhPerWeek
+
+  // New WFH selection logic focused on maximizing consecutive days
   const wfhDates: Date[] = [];
-  
-  weekMap.forEach((datesInWeek) => {
-    // Sort by score within each week
-    datesInWeek.sort((a, b) => 
-      scoreDateForLeave(b, holidays) - scoreDateForLeave(a, holidays)
-    );
-    
-    // Take up to maxWfhPerWeek days per week
-    const wfhForThisWeek = datesInWeek.slice(0, maxWfhPerWeek);
-    wfhDates.push(...wfhForThisWeek);
+  let potentialWfhDays = scoredDates
+    .filter(item => !leaveDates.some(leaveDate => isSameDay(leaveDate, item.date)))
+    .map(item => item.date);
+
+  const weeklyWfhCount = new Map<number, number>(); // weekNum -> count
+
+  // Initialize weekly WFH count for all weeks
+  potentialWfhDays.forEach(date => {
+    const weekNum = getISOWeek(date);
+    if (!weeklyWfhCount.has(weekNum)) {
+      weeklyWfhCount.set(weekNum, 0);
+    }
   });
+
+  // Check for upcoming holidays and weekends to identify potential multi-day streak opportunities
+  const identifyMultiDayOpportunities = () => {
+    // Get all non-workdays (weekends or holidays)
+    const nonWorkDays = allDaysInMonth.filter(date => 
+      isWeekend(date) || isHoliday(date, holidays) !== undefined || leaveDates.some(d => isSameDay(d, date))
+    ).map(date => date.getTime());
+
+    // Find consecutive sequences of non-workdays
+    const nonWorkDaySequences: Date[][] = [];
+    let currentSequence: Date[] = [];
+
+    for (let i = 0; i < allDaysInMonth.length; i++) {
+      const date = allDaysInMonth[i];
+      if (nonWorkDays.includes(date.getTime())) {
+        currentSequence.push(date);
+      } else if (currentSequence.length > 0) {
+        nonWorkDaySequences.push([...currentSequence]);
+        currentSequence = [];
+      }
+    }
+    // Add the last sequence if it exists
+    if (currentSequence.length > 0) {
+      nonWorkDaySequences.push(currentSequence);
+    }
+
+    // Identify workdays adjacent to these sequences that could be used for WFH
+    const opportunityDays = new Map<number, number>(); // Date time -> priority score
+
+    for (const sequence of nonWorkDaySequences) {
+      if (sequence.length >= 3) { // Only consider long weekend or holiday sequences
+        // Check day before sequence
+        const dayBefore = addDays(sequence[0], -1);
+        if (!isWeekend(dayBefore) && !isHoliday(dayBefore, holidays) && 
+            !leaveDates.some(d => isSameDay(d, dayBefore)) &&
+            month === dayBefore.getMonth()) {
+          // Score is higher for longer sequences that this would extend
+          opportunityDays.set(dayBefore.getTime(), sequence.length * 2);
+        }
+
+        // Check day after sequence
+        const dayAfter = addDays(sequence[sequence.length - 1], 1);
+        if (!isWeekend(dayAfter) && !isHoliday(dayAfter, holidays) && 
+            !leaveDates.some(d => isSameDay(d, dayAfter)) &&
+            month === dayAfter.getMonth()) {
+          opportunityDays.set(dayAfter.getTime(), sequence.length * 2);
+        }
+
+        // Check for 2-day extension opportunity (e.g., after a 3-day weekend)
+        if (sequence.length >= 3) {
+          const twoDaysAfter = addDays(sequence[sequence.length - 1], 2);
+          if (!isWeekend(twoDaysAfter) && !isHoliday(twoDaysAfter, holidays) && 
+              !leaveDates.some(d => isSameDay(d, twoDaysAfter)) &&
+              month === twoDaysAfter.getMonth()) {
+            // Day immediately after sequence already identified as opportunity
+            const immediateAfter = addDays(sequence[sequence.length - 1], 1);
+            if (!isWeekend(immediateAfter) && !isHoliday(immediateAfter, holidays) && 
+                !leaveDates.some(d => isSameDay(d, immediateAfter))) {
+              // Extended sequence opportunity (worth more than individual days)
+              opportunityDays.set(immediateAfter.getTime(), (sequence.length + 1) * 2);
+              opportunityDays.set(twoDaysAfter.getTime(), (sequence.length + 1) * 2); 
+            }
+          }
+
+          // Also check two days before
+          const twoDaysBefore = addDays(sequence[0], -2);
+          if (!isWeekend(twoDaysBefore) && !isHoliday(twoDaysBefore, holidays) && 
+              !leaveDates.some(d => isSameDay(d, twoDaysBefore)) &&
+              month === twoDaysBefore.getMonth()) {
+            // Day immediately before sequence already identified as opportunity
+            const immediateBefore = addDays(sequence[0], -1);
+            if (!isWeekend(immediateBefore) && !isHoliday(immediateBefore, holidays) && 
+                !leaveDates.some(d => isSameDay(d, immediateBefore))) {
+              // Extended sequence opportunity
+              opportunityDays.set(immediateBefore.getTime(), (sequence.length + 1) * 2);
+              opportunityDays.set(twoDaysBefore.getTime(), (sequence.length + 1) * 2);
+            }
+          }
+        }
+      }
+    }
+
+    return opportunityDays;
+  };
+
+  // Identify multi-day streak opportunities
+  const opportunityDays = identifyMultiDayOpportunities();
+
+  // We'll continue adding WFH days until we can't add any more (due to weekly limits)
+  // or until adding more doesn't improve consecutive days off
+  let stillAddingWfh = true;
+  while (stillAddingWfh) {
+    stillAddingWfh = false;
+    
+    // Find the best candidate that creates or extends the longest possible streak
+    let bestCandidate: Date | null = null;
+    let bestConsecutiveCount = calculateConsecutiveDaysOff(month, year, leaveDates, wfhDates, holidays);
+    let bestOpportunityScore = -1;
+    
+    // First pass: evaluate all candidate days
+    for (const candidateDate of potentialWfhDays) {
+      // Skip if already selected or max WFH for the week reached
+      if (wfhDates.some(d => isSameDay(d, candidateDate))) continue;
+      
+      const weekNum = getISOWeek(candidateDate);
+      if ((weeklyWfhCount.get(weekNum) || 0) >= maxWfhPerWeek) continue;
+      
+      // Calculate consecutive days if we add this candidate
+      const potentialConsecutive = calculatePotentialConsecutiveDaysOff(
+        candidateDate, month, year, leaveDates, wfhDates, holidays
+      );
+      
+      const opportunityScore = opportunityDays.get(candidateDate.getTime()) || 0;
+      const dateScore = scoreDateForLeave(candidateDate, holidays);
+      
+      // Decision logic with prioritization:
+      // 1. Longest consecutive streak is the primary goal
+      // 2. If tied, prioritize recognized multi-day opportunities
+      // 3. If still tied, use original score (Monday/Friday preference)
+      let makeThisBest = false;
+      
+      if (potentialConsecutive > bestConsecutiveCount) {
+        makeThisBest = true;
+      } 
+      else if (potentialConsecutive === bestConsecutiveCount) {
+        if (opportunityScore > bestOpportunityScore) {
+          makeThisBest = true;
+        }
+        else if (opportunityScore === bestOpportunityScore) {
+          // Check if this date extends an existing WFH or off-day
+          const dayBefore = addDays(candidateDate, -1);
+          const dayAfter = addDays(candidateDate, 1);
+          
+          const isPartOfExistingStreak = (
+            isWeekend(dayBefore) || isHoliday(dayBefore, holidays) || 
+            leaveDates.some(d => isSameDay(d, dayBefore)) || wfhDates.some(d => isSameDay(d, dayBefore)) ||
+            isWeekend(dayAfter) || isHoliday(dayAfter, holidays) || 
+            leaveDates.some(d => isSameDay(d, dayAfter)) || wfhDates.some(d => isSameDay(d, dayAfter))
+          );
+          
+          // Check if best candidate extends a streak
+          const bestIsPartOfStreak = bestCandidate ? (
+            isWeekend(addDays(bestCandidate, -1)) || isHoliday(addDays(bestCandidate, -1), holidays) ||
+            leaveDates.some(d => isSameDay(d, addDays(bestCandidate, -1))) || wfhDates.some(d => isSameDay(d, addDays(bestCandidate, -1))) ||
+            isWeekend(addDays(bestCandidate, 1)) || isHoliday(addDays(bestCandidate, 1), holidays) ||
+            leaveDates.some(d => isSameDay(d, addDays(bestCandidate, 1))) || wfhDates.some(d => isSameDay(d, addDays(bestCandidate, 1)))
+          ) : false;
+          
+          if (isPartOfExistingStreak && !bestIsPartOfStreak) {
+            makeThisBest = true;
+          }
+          else if ((isPartOfExistingStreak && bestIsPartOfStreak) || (!isPartOfExistingStreak && !bestIsPartOfStreak)) {
+            // If both or neither extend a streak, use original score
+            if (dateScore > (bestCandidate ? scoreDateForLeave(bestCandidate, holidays) : -1)) {
+              makeThisBest = true;
+            }
+          }
+        }
+      }
+      
+      if (makeThisBest) {
+        bestCandidate = candidateDate;
+        bestConsecutiveCount = potentialConsecutive;
+        bestOpportunityScore = opportunityScore;
+        stillAddingWfh = true;
+      }
+    }
+    
+    // If we found a candidate, add it to our WFH dates
+    if (bestCandidate) {
+      wfhDates.push(bestCandidate);
+      const weekNum = getISOWeek(bestCandidate);
+      weeklyWfhCount.set(weekNum, (weeklyWfhCount.get(weekNum) || 0) + 1);
+      
+      // After adding a WFH day, recalculate opportunity scores as they may have changed
+      // For example, extending a sequence means different days become valuable
+      // This step is key for handling multi-day extensions like May 13-14 after a holiday
+    } else {
+      // If no more improvements to consecutive days, but we still have WFH slots,
+      // fill remaining slots based on the original score (prefer Mondays/Fridays)
+      const weeksWithRemainingSlots = Array.from(weeklyWfhCount.entries())
+        .filter(([_, count]) => count < maxWfhPerWeek)
+        .map(([weekNum, _]) => weekNum);
+      
+      if (weeksWithRemainingSlots.length > 0) {
+        // Find available days in these weeks and sort by original score
+        const remainingCandidates = potentialWfhDays
+          .filter(date => {
+            if (wfhDates.some(d => isSameDay(d, date))) return false;
+            const weekNum = getISOWeek(date);
+            return weeksWithRemainingSlots.includes(weekNum);
+          })
+          .sort((a, b) => scoreDateForLeave(b, holidays) - scoreDateForLeave(a, holidays));
+        
+        if (remainingCandidates.length > 0) {
+          const nextBestDay = remainingCandidates[0];
+          wfhDates.push(nextBestDay);
+          const weekNum = getISOWeek(nextBestDay);
+          weeklyWfhCount.set(weekNum, (weeklyWfhCount.get(weekNum) || 0) + 1);
+          stillAddingWfh = true;
+        }
+      }
+    }
+  }
   
   // Sort WFH dates chronologically
   wfhDates.sort((a, b) => a.getTime() - b.getTime());
@@ -236,6 +425,22 @@ const calculateConsecutiveDaysOff = (
   }
   
   return maxStreak;
+};
+
+// Calculate what the consecutive days would be if we add a WFH on a specific date
+const calculatePotentialConsecutiveDaysOff = (
+  date: Date,
+  month: number,
+  year: number,
+  leaveDates: Date[],
+  existingWfhDates: Date[],
+  holidays: Holiday[]
+): number => {
+  // Create a temporary WFH list with the new candidate date
+  const tempWfhDates = [...existingWfhDates, date];
+  
+  // Call the normal consecutive days calculator with this temporary list
+  return calculateConsecutiveDaysOff(month, year, leaveDates, tempWfhDates, holidays);
 };
 
 const countWeekendsInMonth = (month: number, year: number): number => {
