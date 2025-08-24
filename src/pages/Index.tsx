@@ -9,56 +9,130 @@ import ResultsPanel from '@/components/ResultsPanel';
 import HolidayInfo from '@/components/HolidayInfo';
 import { getPhilippineHolidays, optimizePlanForMonth, getMonthName, OptimizedPlan } from '@/utils/holidayUtils';
 
+import { isSameDay, isWeekend } from "date-fns";
+import { isHoliday } from "../utils/holidayUtils";
+
 const Index = () => {
   // Current date for default values
   const currentDate = new Date();
-  const currentYear = 2025; // Using 2025 as the starting point
-  
+  const currentYear = currentDate.getFullYear();
+
   // State for controls
   const [maxWfhPerWeek, setMaxWfhPerWeek] = useState<number>(2);
   const [totalLeaves, setTotalLeaves] = useState<number>(5);
-  const [selectedMonth, setSelectedMonth] = useState<number>(0); // January
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth()); // Current month
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
-  
+
   // State for holidays and optimization results
   const [holidays, setHolidays] = useState(getPhilippineHolidays());
+  const [customHolidays, setCustomHolidays] = useState<Date[]>([]);
   const [optimizedPlan, setOptimizedPlan] = useState<OptimizedPlan | null>(null);
-  
-  // Run optimization
-  const handleOptimize = () => {
-    const plan = optimizePlanForMonth(
-      selectedMonth,
-      selectedYear,
-      maxWfhPerWeek,
-      totalLeaves,
-      holidays
-    );
-    
-    setOptimizedPlan(plan);
-    toast.success(`Schedule optimized for ${getMonthName(selectedMonth)} ${selectedYear}`);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
+  // State for user-used leave dates
+  const [userLeaveDates, setUserLeaveDates] = useState<Date[]>([]);
+
+  // Combine Philippine holidays with custom holidays
+  const getAllHolidays = () => {
+    const customHolidayObjects = customHolidays.map(date => ({
+      date,
+      name: "Custom Holiday",
+      isSpecial: true
+    }));
+    return [...holidays, ...customHolidayObjects];
   };
-  
+
+  // Run optimization
+  const handleOptimize = async (customLeaveDates?: Date[]) => {
+    setIsOptimizing(true);
+    try {
+      // Add small delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const plan = optimizePlanForMonth(
+        selectedMonth,
+        selectedYear,
+        maxWfhPerWeek,
+        totalLeaves,
+        getAllHolidays()
+      );
+      
+      setOptimizedPlan(plan);
+      if (customLeaveDates) {
+        setUserLeaveDates(customLeaveDates);
+      }
+      toast.success(`Schedule optimized for ${getMonthName(selectedMonth)} ${selectedYear}`);
+    } catch (error) {
+      console.error("Optimization failed:", error);
+      toast.error("Failed to optimize schedule. Please try again.");
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
   // Initialize with example optimization
   useEffect(() => {
     handleOptimize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
+  // Handler for clicking a date in the calendar - now toggles custom holidays
+  const handleDateClick = (date: Date) => {
+    // Check if this date is already a custom holiday
+    const isCustomHoliday = customHolidays.some(d => isSameDay(d, date));
+    
+    if (isCustomHoliday) {
+      // Remove custom holiday
+      const updated = customHolidays.filter(d => !isSameDay(d, date));
+      setCustomHolidays(updated);
+    } else {
+      // Add custom holiday (only if it's not a weekend or existing Philippine holiday)
+      if (!isWeekend(date) && !isHoliday(date, holidays)) {
+        const updated = [...customHolidays, date];
+        setCustomHolidays(updated);
+      }
+    }
+  };
+
+  // Auto-reoptimize when custom holidays change
+  useEffect(() => {
+    if (optimizedPlan) {
+      handleOptimize();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customHolidays]);
+
+  // Get current month and date string
+  const currentMonthName = getMonthName(currentDate.getMonth());
+  const currentDay = currentDate.getDate();
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       {/* Top bar with View on GitHub button */}
       <div className="max-w-7xl mx-auto">
-        
+
+        {/* Display current month and date prominently */}
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-bold">
+            {currentMonthName} {currentDay}, {currentDate.getFullYear()}
+          </h1>
+        </div>
+
         <HolidayInfo />
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <HolidayCalendar
               month={selectedMonth}
               year={selectedYear}
-              holidays={holidays}
-              leaveDates={optimizedPlan?.leaveDates || []}
+              holidays={getAllHolidays()}
+              leaveDates={[
+                ...(Array.isArray(userLeaveDates) ? userLeaveDates : []),
+                ...(optimizedPlan?.leaveDates || [])
+              ]}
               wfhDates={optimizedPlan?.wfhDates || []}
+              customHolidays={customHolidays}
+              onDateClick={handleDateClick}
             />
           </div>
           

@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ControlPanelProps {
   maxWfhPerWeek: number;
@@ -30,12 +31,57 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   setSelectedYear,
   onOptimize
 }) => {
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
   const months = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ];
   
-  const years = [2025, 2026, 2027, 2028, 2029];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - 2 + i); // 2 years back, 7 years forward
+
+  const validateInputs = (): boolean => {
+    const errors: string[] = [];
+
+    if (maxWfhPerWeek < 0 || maxWfhPerWeek > 5) {
+      errors.push("WFH days per week must be between 0 and 5");
+    }
+
+    if (totalLeaves < 0 || totalLeaves > 50) {
+      errors.push("Leave credits must be between 0 and 50");
+    }
+
+    if (selectedMonth < 0 || selectedMonth > 11) {
+      errors.push("Please select a valid month");
+    }
+
+    if (selectedYear < currentYear - 2 || selectedYear > currentYear + 7) {
+      errors.push("Please select a valid year");
+    }
+
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
+  const handleOptimize = async () => {
+    if (!validateInputs()) return;
+
+    setIsOptimizing(true);
+    try {
+      await onOptimize();
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  const handleLeavesChange = (value: number) => {
+    if (value >= 0 && value <= 50) {
+      setTotalLeaves(value);
+      setValidationErrors(prev => prev.filter(err => !err.includes("Leave credits")));
+    }
+  };
   
   return (
     <Card>
@@ -59,17 +105,18 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="leaves-input">Available Leave Credits</Label>
-          <div className="flex">
-            <Input
-              id="leaves-input"
-              type="number"
-              min={0}
-              value={totalLeaves}
-              onChange={(e) => setTotalLeaves(parseInt(e.target.value) || 0)}
-              className="w-full"
-            />
+          <div className="flex justify-between items-center">
+            <Label htmlFor="leaves-slider">Available Leave Credits</Label>
+            <span className="text-lg font-medium text-primary">{totalLeaves}</span>
           </div>
+          <Slider 
+            id="leaves-slider"
+            min={0} 
+            max={10} 
+            step={1} 
+            value={[totalLeaves]}
+            onValueChange={(value) => setTotalLeaves(value[0])}
+          />
         </div>
         
         <div className="grid grid-cols-2 gap-4">
@@ -112,11 +159,24 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         </div>
         
+        {validationErrors.length > 0 && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              <ul className="list-disc list-inside">
+                {validationErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Button 
-          className="w-full bg-ph-blue hover:bg-ph-blue/90" 
-          onClick={onOptimize}
+          className="w-full bg-primary hover:bg-primary/90" 
+          onClick={handleOptimize}
+          disabled={isOptimizing || validationErrors.length > 0}
         >
-          Optimize My Schedule
+          {isOptimizing ? "Optimizing..." : "Optimize My Schedule"}
         </Button>
       </CardContent>
     </Card>

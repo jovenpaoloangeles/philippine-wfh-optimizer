@@ -9,6 +9,9 @@ interface ResultsPanelProps {
 }
 
 const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth }) => {
+  // Defensive logging: log the received plan object
+  console.log('ResultsPanel received plan:', plan);
+
   if (!plan) {
     return (
       <Card>
@@ -24,7 +27,19 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth }) => {
       </Card>
     );
   }
-  
+
+  // Defensive helpers for logging and error catching
+  const safeField = (label: string, fn: () => any, fallback: any = '—') => {
+    try {
+      const value = fn();
+      console.log(`ResultsPanel: ${label}:`, value);
+      return value;
+    } catch (err) {
+      console.error(`ResultsPanel ERROR accessing ${label}:`, err);
+      return fallback;
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -36,8 +51,8 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth }) => {
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-muted rounded-lg p-4 text-center">
-            <div className="text-4xl font-bold text-ph-blue">
-              {plan.consecutiveDaysOff}
+            <div className="text-4xl font-bold text-primary">
+              {safeField('consecutiveDaysOff', () => plan.consecutiveDaysOff)}
             </div>
             <div className="text-sm text-muted-foreground mt-1">
               Max Consecutive Days Off
@@ -45,8 +60,8 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth }) => {
           </div>
           
           <div className="bg-muted rounded-lg p-4 text-center">
-            <div className="text-4xl font-bold text-ph-red">
-              {plan.totalDaysOff}
+            <div className="text-4xl font-bold text-secondary">
+              {safeField('totalDaysOff', () => plan.totalDaysOff)}
             </div>
             <div className="text-sm text-muted-foreground mt-1">
               Total Days Off
@@ -56,27 +71,24 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth }) => {
         
         <div className="space-y-3">
           <div>
-            <h4 className="font-medium">Recommended Leave Dates ({plan.regularLeavesUsed})</h4>
+            <h4 className="font-medium">
+              Recommended Leave Dates ({safeField('regularLeavesUsed', () => plan.regularLeavesUsed)})
+            </h4>
             <p className="text-sm text-muted-foreground">
-              {getFormattedDateRange(plan.leaveDates)}
+              {safeField('leaveDates (formatted)', () => getFormattedDateRange(plan.leaveDates))}
             </p>
           </div>
           
           <div>
-            <h4 className="font-medium">Recommended Work From Home Dates ({plan.wfhDates.length})</h4>
+            <h4 className="font-medium">
+              Recommended Work From Home Dates ({safeField('wfhDates.length', () => plan.wfhDates.length)})
+            </h4>
             <p className="text-sm text-muted-foreground">
-              {getFormattedDateRange(plan.wfhDates)}
+              {safeField('wfhDates (formatted)', () => getFormattedDateRange(plan.wfhDates))}
             </p>
           </div>
         </div>
         
-        <div className="bg-accent/30 rounded-lg p-4 mt-4">
-          <h4 className="font-medium text-center">Optimization Summary</h4>
-          <p className="text-sm mt-2">
-            By taking {plan.regularLeavesUsed} leave days and {plan.wfhDates.length} work from home days strategically, 
-            you'll enjoy up to {plan.consecutiveDaysOff} consecutive days away from the office this month, with a total of {plan.totalDaysOff} days off!
-          </p>
-        </div>
       </CardContent>
     </Card>
   );

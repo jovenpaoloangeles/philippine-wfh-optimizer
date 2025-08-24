@@ -6,12 +6,21 @@ export interface Holiday {
   isSpecial: boolean;
 }
 
+export interface LeaveDetail {
+  date: Date;
+  type: "full";
+}
+
 export interface OptimizedPlan {
+  // Deprecated: leaveDates kept for backward compatibility. Prefer leaveDetails.
   leaveDates: Date[];
+  leaveDetails: LeaveDetail[]; // Only "full" leaves supported
   wfhDates: Date[];
   consecutiveDaysOff: number;
   regularLeavesUsed: number;
   totalDaysOff: number;
+  strategyUsed: "A" | "B";
+  carryoverBalance: number; // Carryover is settable and used in calculations
 }
 
 // Define the Holiday type (assuming it's defined elsewhere, e.g., in a types file)
@@ -21,8 +30,11 @@ export interface OptimizedPlan {
 //  isSpecial: boolean; // false for Regular, true for Special Non-working
 // }
 
-// Philippine holidays for 2025
-// Based on Proclamation No. 727, s. 2024 and other relevant proclamations
+/**
+ * Get Philippine holidays for 2025
+ * Based on Proclamation No. 727, s. 2024 and other relevant proclamations
+ * @returns Array of Holiday objects with date, name, and special status
+ */
 export const getPhilippineHolidays = (): Holiday[] => {
   return [
     // Regular Holidays [4, 7]
@@ -63,6 +75,12 @@ export const getPhilippineHolidays = (): Holiday[] => {
   ];
 };
 
+/**
+ * Check if a given date is a holiday
+ * @param date - The date to check
+ * @param holidays - Array of holidays to check against
+ * @returns Holiday object if date is a holiday, undefined otherwise
+ */
 export const isHoliday = (date: Date, holidays: Holiday[]): Holiday | undefined => {
   return holidays.find(holiday => isSameDay(holiday.date, date));
 };
@@ -83,51 +101,87 @@ export const isLongWeekendCandidate = (date: Date, holidays: Holiday[]): boolean
   }
 };
 
-// Score a date for leave potential
-const scoreDateForLeave = (date: Date, holidays: Holiday[]): number => {
+/**
+ * Score a date for leave potential based on surrounding holidays and weekends
+ * @param date - The date to score
+ * @param holidays - Array of holidays to consider
+ * @returns Numerical score (higher is better for taking leave)
+ */
+export const scoreDateForLeave = (date: Date, holidays: Holiday[]): number => {
   let score = 0;
-  
+
   // Skip weekends and holidays (we don't need to take leave on these days)
   if (isWeekend(date) || isHoliday(date, holidays)) {
     return -1; // Not a candidate for leave
   }
-  
+
   // Check surrounding days (before and after)
   for (let offset = -2; offset <= 2; offset++) {
     if (offset === 0) continue; // Skip the current day
-    
+
     const checkDate = addDays(date, offset);
-    
+
     // Adjacent day is a holiday or weekend
     if (isHoliday(checkDate, holidays) || isWeekend(checkDate)) {
       // Immediate adjacent days (±1) are more valuable
       score += Math.abs(offset) === 1 ? 10 : 5;
     }
   }
-  
+
   // Check for sandwiched days (bridge days)
   const prevDay = addDays(date, -1);
   const nextDay = addDays(date, 1);
-  if ((isHoliday(prevDay, holidays) || isWeekend(prevDay)) && 
-      (isHoliday(nextDay, holidays) || isWeekend(nextDay))) {
+  const prevIsOff = !!isHoliday(prevDay, holidays) || isWeekend(prevDay);
+  const nextIsOff = !!isHoliday(nextDay, holidays) || isWeekend(nextDay);
+  if (prevIsOff && nextIsOff) {
     score += 15; // Bridging two off days is very valuable
   }
-  
+
   // Mondays and Fridays are generally better for extending weekends
   if (isMonday(date) || isFriday(date)) {
     score += 8;
   }
-  
+
+  // If continuous rest is not possible (no adjacent off days), prioritize Thu/Fri over Mon/Tue
+  if (!prevIsOff && !nextIsOff) {
+    const day = date.getDay(); // 0 Sun, 1 Mon, ... 6 Sat
+    if (day === 4 || day === 5) score += 2; // Thu/Fri slight boost
+    if (day === 1 || day === 2) score -= 2; // Mon/Tue slight penalty
+  }
+
   return score;
 };
 
+/**
+ * Optimize leave and WFH schedule for a given month
+ * @param month - Month index (0-11)
+ * @param year - Year (e.g., 2025)
+ * @param maxWfhPerWeek - Maximum WFH days per week (0-5)
+ * @param totalLeaves - Available leave credits
+ * @param holidays - Array of holidays to consider
+ * @param strategy - Optimization strategy ("A" or "B")
+ * @param carryoverBalance - Additional leave credits from previous period
+ * @returns Optimized plan with leave dates, WFH dates, and statistics
+ */
 export const optimizePlanForMonth = (
   month: number,
-  year: number, 
-  maxWfhPerWeek: number, 
+  year: number,
+  maxWfhPerWeek: number,
   totalLeaves: number,
-  holidays: Holiday[]
+  holidays: Holiday[],
+  strategy: "A" | "B" = "A",
+  carryoverBalance: number = 0
 ): OptimizedPlan => {
+  // Input validation
+  if (typeof month !== 'number' || month < 0 || month > 11) {
+    throw new Error('Invalid month parameter');
+  }
+  if (typeof year !== 'number' || year < 2020 || year > 2030) {
+    throw new Error('Invalid year parameter');
+  }
+  if (typeof maxWfhPerWeek !== 'number' || maxWfhPerWeek < 0 || maxWfhPerWeek > 5) {
+    throw new Error('Invalid maxWfhPerWeek parameter');
+  }
   const startDate = startOfMonth(new Date(year, month, 1));
   const endDate = endOfMonth(startDate);
   const allDaysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -144,16 +198,74 @@ export const optimizePlanForMonth = (
   // Sort by score (highest first)
   scoredDates.sort((a, b) => b.score - a.score);
   
-  // Select days for leave (highest scores first, up to totalLeaves)
-  const leaveDates = scoredDates
-    .slice(0, totalLeaves)
-    .map(item => item.date)
-    .sort((a, b) => a.getTime() - b.getTime()); // Sort chronologically
+  // Strategy selection and leave allocation
+  const availableLeaves = totalLeaves + (carryoverBalance || 0);
+  const leaveDetails: LeaveDetail[] = [];
+  let leavesConsumed = 0;
+
+  // Helper to check if a date is already chosen for leave
+  const isSelectedForLeave = (d: Date) => leaveDetails.some(ld => isSameDay(ld.date, d));
+
+  if (strategy === "A") {
+    // Strategy A: maximize consecutive rest days by using highest-score full-day leaves
+    const fullSlots = Math.floor(availableLeaves);
+    for (const item of scoredDates.slice(0, fullSlots)) {
+      leaveDetails.push({ date: item.date, type: "full" });
+      leavesConsumed += 1;
+    }
+  } else {
+    // Strategy B: minimize leave usage while extending weekends
+    // Only use a full-day leave if it increases the longest consecutive days off
+    let improved = true;
+    while (improved && leavesConsumed + 1 <= availableLeaves) {
+      improved = false;
+      const currentStreak = calculateConsecutiveDaysOff(
+        month,
+        year,
+        leaveDetails.map(ld => ld.date),
+        [],
+        holidays
+      );
+      let bestItem: { date: Date; score: number } | null = null;
+      let bestImprovement = 0;
+      for (const item of scoredDates) {
+        if (isSelectedForLeave(item.date)) continue;
+        const potentialStreak = calculateConsecutiveDaysOff(
+          month,
+          year,
+          [...leaveDetails.map(ld => ld.date), item.date],
+          [],
+          holidays
+        );
+        const improvement = potentialStreak - currentStreak;
+        if (
+          improvement > bestImprovement ||
+          (improvement === bestImprovement && (!bestItem || item.score > bestItem.score))
+        ) {
+          bestItem = { date: item.date, score: item.score };
+          bestImprovement = improvement;
+        }
+      }
+      if (bestItem && bestImprovement > 0) {
+        leaveDetails.push({ date: bestItem.date, type: "full" });
+        leavesConsumed += 1;
+        improved = true;
+      } else {
+        break;
+      }
+    }
+    // No half-day allocation: only full-day leaves are supported
+  }
+
+  // Derive legacy leaveDates (full-day only) for backward compatibility
+  const leaveDates = leaveDetails
+    .map(ld => ld.date)
+    .sort((a, b) => a.getTime() - b.getTime());
 
   // New WFH selection logic focused on maximizing consecutive days
   const wfhDates: Date[] = [];
-  let potentialWfhDays = scoredDates
-    .filter(item => !leaveDates.some(leaveDate => isSameDay(leaveDate, item.date)))
+  const potentialWfhDays = scoredDates
+    .filter(item => !leaveDates.some(leaveDate => isSameDay(leaveDate, item.date)) && !leaveDetails.some(ld => isSameDay(ld.date, item.date)))
     .map(item => item.date);
 
   const weeklyWfhCount = new Map<number, number>(); // weekNum -> count
@@ -373,17 +485,29 @@ export const optimizePlanForMonth = (
   // Sort WFH dates chronologically
   wfhDates.sort((a, b) => a.getTime() - b.getTime());
   
-  // Calculate metrics
-  const weekendAndHolidayCount = holidays.filter(h => 
-    h.date.getMonth() === month && h.date.getFullYear() === year
-  ).length + countWeekendsInMonth(month, year);
-  
+ // Correctly calculate metrics to avoid double-counting
+ const daysInMonth = eachDayOfInterval({
+   start: startOfMonth(new Date(year, month, 1)),
+   end: endOfMonth(new Date(year, month, 1)),
+  });
+ const weekendAndHolidayCount = daysInMonth.filter(day => 
+   isWeekend(day) || isHoliday(day, holidays)
+  ).length;
+
+  const fullLeavesUsed = leaveDetails.length;
+  const regularLeavesUsed = fullLeavesUsed;
+  const totalDaysOff = fullLeavesUsed + wfhDates.length + weekendAndHolidayCount;
+  const updatedCarryover = Math.max(0, totalLeaves + (carryoverBalance || 0) - regularLeavesUsed);
+
   return {
+    leaveDetails,
     leaveDates,
     wfhDates,
     consecutiveDaysOff: calculateConsecutiveDaysOff(month, year, leaveDates, wfhDates, holidays),
-    regularLeavesUsed: leaveDates.length,
-    totalDaysOff: leaveDates.length + wfhDates.length + weekendAndHolidayCount
+    regularLeavesUsed,
+    totalDaysOff,
+    strategyUsed: strategy,
+    carryoverBalance: updatedCarryover
   };
 };
 
@@ -451,12 +575,22 @@ const countWeekendsInMonth = (month: number, year: number): number => {
   return allDaysInMonth.filter(date => isWeekend(date)).length;
 };
 
+/**
+ * Format dates for display in results
+ * @param dates - Array of Date objects
+ * @returns Formatted string with comma-separated day numbers
+ */
 export const getFormattedDateRange = (dates: Date[]): string => {
   if (dates.length === 0) return "None";
   
-  return dates.map(date => format(date, "MMM d, yyyy")).join(", ");
+  return dates.map(date => format(date, "d")).join(", ");
 };
 
+/**
+ * Get the full name of a month from its index
+ * @param month - Month index (0-11)
+ * @returns Full month name (e.g., "January")
+ */
 export const getMonthName = (month: number): string => {
   return new Date(2025, month, 1).toLocaleString('default', { month: 'long' });
 };

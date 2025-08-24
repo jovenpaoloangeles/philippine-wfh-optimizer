@@ -11,25 +11,47 @@ interface HolidayCalendarProps {
   holidays: Holiday[];
   leaveDates: Date[];
   wfhDates: Date[];
+  customHolidays?: Date[];
+  onDateClick?: (date: Date) => void;
 }
 
-const HolidayCalendar: React.FC<HolidayCalendarProps> = ({ 
-  month, 
-  year, 
-  holidays, 
+const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
+  month,
+  year,
+  holidays,
   leaveDates,
-  wfhDates
+  wfhDates,
+  customHolidays = [],
+  onDateClick
 }) => {
-  const monthStart = startOfMonth(new Date(year, month));
-  const monthEnd = endOfMonth(monthStart);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  
-  // Day names for header
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  
-  // Determine offset for the first day of the month
-  const firstDayOffset = monthStart.getDay();
-  const emptyDays = Array(firstDayOffset).fill(null);
+  try {
+    // Validate inputs
+    if (typeof month !== 'number' || typeof year !== 'number') {
+      return <div>Error: Invalid date parameters</div>;
+    }
+    
+    if (!Array.isArray(holidays)) {
+      return <div>Error: Invalid holidays data</div>;
+    }
+    
+    if (!Array.isArray(leaveDates)) {
+      return <div>Error: Invalid leave dates data</div>;
+    }
+    
+    if (!Array.isArray(wfhDates)) {
+      return <div>Error: Invalid WFH dates data</div>;
+    }
+    
+    const monthStart = startOfMonth(new Date(year, month));
+    const monthEnd = endOfMonth(monthStart);
+    const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    
+    // Day names for header
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // Determine offset for the first day of the month
+    const firstDayOffset = monthStart.getDay();
+    const emptyDays = Array(firstDayOffset).fill(null);
   
   return (
     <Card>
@@ -56,56 +78,98 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
           ))}
           
           {/* Calendar days */}
-          {days.map(day => {
-            const holiday = isHoliday(day, holidays);
-            const isLeaveDay = leaveDates.some(date => isSameDay(date, day));
-            const isWfhDay = wfhDates.some(date => isSameDay(date, day));
-            
-            let cellClass = "h-14 p-1 border rounded-md relative";
-            
-            if (holiday) {
-              cellClass += " bg-accent/30";
-            } else if (isLeaveDay) {
-              cellClass += " bg-secondary/20";
-            } else if (isWfhDay) {
-              cellClass += " bg-primary/20";
-            } else if (isWeekend(day)) {
-              cellClass += " bg-gray-100";
+          {days.map((day, dayIndex) => {
+            try {
+              if (!day || !(day instanceof Date)) {
+                return <div key={`invalid-${dayIndex}`} className="h-14 p-1 border rounded-md bg-red-100">Invalid</div>;
+              }
+
+              const holiday = isHoliday(day, holidays);
+              const isCustomHoliday = customHolidays.some(date => date && isSameDay(date, day));
+              const isLeaveDay = leaveDates.some(date => date && isSameDay(date, day));
+              const isWfhDay = wfhDates.some(date => date && isSameDay(date, day));
+              
+              let cellClass = "h-14 p-1 border rounded-md relative cursor-pointer hover:bg-gray-50";
+              
+              if (holiday) {
+                cellClass += " bg-accent/30";
+              } else if (isCustomHoliday) {
+                cellClass += " bg-orange-100 border-orange-300";
+              } else if (isLeaveDay) {
+                cellClass += " bg-secondary/20";
+              } else if (isWfhDay) {
+                cellClass += " bg-primary/20";
+              } else if (isWeekend(day)) {
+                cellClass += " bg-gray-100";
+              }
+              
+              return (
+                <div
+                  key={day.getTime()}
+                  className={cellClass}
+                  onClick={() => {
+                    if (onDateClick) onDateClick(day);
+                  }}
+                  title={isCustomHoliday ? "Custom Holiday (click to remove)" : "Click to add custom holiday"}
+                >
+                  <div className="text-right text-sm">{format(day, 'd')}</div>
+                  
+                  {holiday && holiday.name && (
+                    <Badge variant="outline" className={`
+                      absolute bottom-1 left-1 right-1 text-xs justify-center
+                      ${holiday.isSpecial ? 'bg-accent text-accent-foreground' : 'bg-secondary text-secondary-foreground'}
+                    `}>
+                      {holiday.name.length > 10
+                        ? `${holiday.name.substring(0, 10)}...`
+                        : holiday.name}
+                    </Badge>
+                  )}
+                  
+                  {isCustomHoliday && !holiday && (
+                    <Badge className="absolute bottom-1 left-1 right-1 text-xs justify-center bg-orange-500 text-white">
+                      Custom
+                    </Badge>
+                  )}
+                  
+                  {isLeaveDay && !holiday && !isCustomHoliday && (
+                    <Badge className="absolute bottom-1 left-1 right-1 text-xs justify-center bg-secondary text-secondary-foreground">
+                      Leave
+                    </Badge>
+                  )}
+                  
+                  {isWfhDay && !holiday && !isLeaveDay && !isCustomHoliday && (
+                    <Badge className="absolute bottom-1 left-1 right-1 text-xs justify-center bg-primary text-primary-foreground">
+                      WFH
+                    </Badge>
+                  )}
+                </div>
+              );
+            } catch (dayError) {
+              return (
+                <div key={`error-${dayIndex}`} className="h-14 p-1 border rounded-md bg-red-100">
+                  <div className="text-xs text-red-600">Error</div>
+                </div>
+              );
             }
-            
-            return (
-              <div key={day.toString()} className={cellClass}>
-                <div className="text-right text-sm">{format(day, 'd')}</div>
-                
-                {holiday && (
-                  <Badge variant="outline" className={`
-                    absolute bottom-1 left-1 right-1 text-xs justify-center
-                    ${holiday.isSpecial ? 'bg-accent text-accent-foreground' : 'bg-secondary text-secondary-foreground'}
-                  `}>
-                    {holiday.name.length > 10 
-                      ? `${holiday.name.substring(0, 10)}...` 
-                      : holiday.name}
-                  </Badge>
-                )}
-                
-                {isLeaveDay && !holiday && (
-                  <Badge className="absolute bottom-1 left-1 right-1 text-xs justify-center bg-secondary text-secondary-foreground">
-                    Leave
-                  </Badge>
-                )}
-                
-                {isWfhDay && !holiday && !isLeaveDay && (
-                  <Badge className="absolute bottom-1 left-1 right-1 text-xs justify-center bg-primary text-primary-foreground">
-                    WFH
-                  </Badge>
-                )}
-              </div>
-            );
           })}
         </div>
       </CardContent>
     </Card>
   );
+  } catch (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-center">Calendar Error</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center text-red-500">
+            Failed to render calendar. Please try refreshing the page.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 };
 
 export default HolidayCalendar;
