@@ -89,18 +89,18 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
               const isLeaveDay = leaveDates.some(date => date && isSameDay(date, day));
               const isWfhDay = wfhDates.some(date => date && isSameDay(date, day));
               
-              let cellClass = "h-14 p-1 border rounded-md relative cursor-pointer hover:bg-gray-50";
+              let cellClass = "h-14 p-1 border rounded-md relative cursor-pointer hover:bg-muted/50";
               
               if (holiday) {
                 cellClass += " bg-accent/30";
               } else if (isCustomHoliday) {
-                cellClass += " bg-orange-100 border-orange-300";
+                cellClass += " bg-orange-500/20 border-orange-500/40";
               } else if (isLeaveDay) {
-                cellClass += " bg-secondary/20";
+                cellClass += " bg-secondary/30";
               } else if (isWfhDay) {
-                cellClass += " bg-primary/20";
+                cellClass += " bg-primary/30";
               } else if (isWeekend(day)) {
-                cellClass += " bg-gray-100";
+                cellClass += " bg-muted/30";
               }
               
               return (

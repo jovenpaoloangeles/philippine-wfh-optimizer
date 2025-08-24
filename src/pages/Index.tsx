@@ -7,6 +7,7 @@ import HolidayCalendar from '@/components/HolidayCalendar';
 import ControlPanel from '@/components/ControlPanel';
 import ResultsPanel from '@/components/ResultsPanel';
 import HolidayInfo from '@/components/HolidayInfo';
+import ThemeToggle from '@/components/ThemeToggle';
 import { getPhilippineHolidays, optimizePlanForMonth, getMonthName, OptimizedPlan } from '@/utils/holidayUtils';
 
 import { isSameDay, isWeekend } from "date-fns";
@@ -107,13 +108,16 @@ const Index = () => {
   const currentDay = currentDate.getDate();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      {/* Top bar with View on GitHub button */}
+    <div className="min-h-screen bg-gray-50 dark:bg-background p-4 md:p-6">
+      {/* Top bar with theme toggle */}
       <div className="max-w-7xl mx-auto">
+        <div className="flex justify-end mb-4">
+          <ThemeToggle />
+        </div>
 
         {/* Display current month and date prominently */}
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold text-foreground">
             {currentMonthName} {currentDay}, {currentDate.getFullYear()}
           </h1>
         </div>
