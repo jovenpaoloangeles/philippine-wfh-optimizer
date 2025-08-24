@@ -80,6 +80,34 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     if (value >= 0 && value <= 50) {
       setTotalLeaves(value);
       setValidationErrors(prev => prev.filter(err => !err.includes("Leave credits")));
+      // Auto-optimize when leave credits change
+      if (validateInputs()) {
+        onOptimize();
+      }
+    }
+  };
+
+  const handleWfhChange = (value: number) => {
+    setMaxWfhPerWeek(value);
+    // Auto-optimize when WFH days change
+    if (validateInputs()) {
+      onOptimize();
+    }
+  };
+
+  const handleMonthChange = (value: string) => {
+    setSelectedMonth(parseInt(value));
+    // Auto-optimize when month changes
+    if (validateInputs()) {
+      onOptimize();
+    }
+  };
+
+  const handleYearChange = (value: string) => {
+    setSelectedYear(parseInt(value));
+    // Auto-optimize when year changes
+    if (validateInputs()) {
+      onOptimize();
     }
   };
   
@@ -100,7 +128,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             max={5} 
             step={1} 
             value={[maxWfhPerWeek]}
-            onValueChange={(value) => setMaxWfhPerWeek(value[0])}
+            onValueChange={(value) => handleWfhChange(value[0])}
           />
         </div>
         
@@ -115,7 +143,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             max={10} 
             step={1} 
             value={[totalLeaves]}
-            onValueChange={(value) => setTotalLeaves(value[0])}
+            onValueChange={(value) => handleLeavesChange(value[0])}
           />
         </div>
         
@@ -124,7 +152,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <Label htmlFor="month-select">Month</Label>
             <Select
               value={selectedMonth.toString()}
-              onValueChange={(value) => setSelectedMonth(parseInt(value))}
+              onValueChange={handleMonthChange}
             >
               <SelectTrigger id="month-select">
                 <SelectValue placeholder="Select month" />
@@ -143,7 +171,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <Label htmlFor="year-select">Year</Label>
             <Select
               value={selectedYear.toString()}
-              onValueChange={(value) => setSelectedYear(parseInt(value))}
+              onValueChange={handleYearChange}
             >
               <SelectTrigger id="year-select">
                 <SelectValue placeholder="Select year" />

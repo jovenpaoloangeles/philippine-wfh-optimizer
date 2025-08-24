@@ -8,10 +8,13 @@ import ControlPanel from '@/components/ControlPanel';
 import ResultsPanel from '@/components/ResultsPanel';
 import HolidayInfo from '@/components/HolidayInfo';
 import ThemeToggle from '@/components/ThemeToggle';
-import { getPhilippineHolidays, optimizePlanForMonth, getMonthName, OptimizedPlan } from '@/utils/holidayUtils';
+import { getPhilippineHolidays } from '../utils/philippineHolidays';
+import { getMonthName } from '../utils/formatUtils';
+import { isHoliday } from '../utils/holidayDetection';
+import { optimizePlanForMonth } from '../utils/optimizationEngine';
+import type { OptimizedPlan } from '../utils/types';
 
 import { isSameDay, isWeekend } from "date-fns";
-import { isHoliday } from "../utils/holidayUtils";
 
 const Index = () => {
   // Current date for default values
@@ -159,6 +162,8 @@ const Index = () => {
           <ResultsPanel
             plan={optimizedPlan}
             selectedMonth={getMonthName(selectedMonth)}
+            holidays={holidays}
+            customHolidays={customHolidays}
           />
         </div>
         
