@@ -84,7 +84,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   };
   
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Optimization Controls</CardTitle>
       </CardHeader>

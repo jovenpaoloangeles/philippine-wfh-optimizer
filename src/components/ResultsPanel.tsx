@@ -68,27 +68,6 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth }) => {
             </div>
           </div>
         </div>
-        
-        <div className="space-y-3">
-          <div>
-            <h4 className="font-medium">
-              Recommended Leave Dates ({safeField('regularLeavesUsed', () => plan.regularLeavesUsed)})
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              {safeField('leaveDates (formatted)', () => getFormattedDateRange(plan.leaveDates))}
-            </p>
-          </div>
-          
-          <div>
-            <h4 className="font-medium">
-              Recommended Work From Home Dates ({safeField('wfhDates.length', () => plan.wfhDates.length)})
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              {safeField('wfhDates (formatted)', () => getFormattedDateRange(plan.wfhDates))}
-            </p>
-          </div>
-        </div>
-        
       </CardContent>
     </Card>
   );
