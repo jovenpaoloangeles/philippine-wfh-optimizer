@@ -8,3 +8,13 @@ export { scoreDateForLeave, calculateOpportunityScore } from './scoringUtils';
 export { calculateConsecutiveDaysOff, calculatePotentialConsecutiveDaysOff, countWeekendsInMonth } from './calculationUtils';
 export { getFormattedDateRange, getMonthName } from './formatUtils';
 export { optimizePlanForMonth } from './optimizationEngine';
+
+// Re-export calendar functions
+export { generateICS, downloadICS, exportToCalendar } from './calendarExport';
+
+// Re-export share functions
+export { generateShareableURL, parseShareableURL, copyShareableURL, getShareText } from './shareUtils';
+
+// Re-export holiday descriptions
+export { getHolidayDescription, holidayDescriptions } from './holidayDescriptions';
+export type { HolidayDescription } from './holidayDescriptions';

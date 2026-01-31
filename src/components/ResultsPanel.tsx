@@ -1,17 +1,36 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { OptimizedPlan, getFormattedDateRange } from '../utils/holidayUtils';
+import { Button } from "@/components/ui/button";
+import { Calendar, Download, Share2, Check } from "lucide-react";
+import { OptimizedPlan, getFormattedDateRange, exportToCalendar, copyShareableURL } from '../utils/holidayUtils';
 import type { Holiday } from '../utils/types';
+import { toast } from "sonner";
 
 interface ResultsPanelProps {
   plan: OptimizedPlan | null;
   selectedMonth: string;
   holidays: Holiday[];
   customHolidays: Date[];
+  month: number;
+  year: number;
+  maxWfhPerWeek: number;
+  totalLeaves: number;
 }
 
-const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth, holidays, customHolidays }) => {
+const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth, holidays, customHolidays, month, year, maxWfhPerWeek, totalLeaves }) => {
+  const [copied, setCopied] = useState(false);
+  
+  const handleShare = async () => {
+    const success = await copyShareableURL(maxWfhPerWeek, totalLeaves, month, year);
+    if (success) {
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.error("Failed to copy link");
+    }
+  };
   // Defensive logging: log the received plan object
   console.log('ResultsPanel received plan:', plan);
 
@@ -32,7 +51,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth, holida
   }
 
   // Defensive helpers for logging and error catching
-  const safeField = (label: string, fn: () => any, fallback: any = '—') => {
+  const safeField = (label: string, fn: () => number, fallback: number = 0) => {
     try {
       const value = fn();
       console.log(`ResultsPanel: ${label}:`, value);
@@ -52,6 +71,28 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ plan, selectedMonth, holida
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex justify-end gap-2">
+          <Button 
+            onClick={handleShare}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+            {copied ? 'Copied!' : 'Share'}
+          </Button>
+          <Button 
+            onClick={() => exportToCalendar(holidays, plan, month, year)}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Export to Calendar
+            <Download className="h-4 w-4" />
+          </Button>
+        </div>
+        
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-muted rounded-lg p-4 text-center">
             <div className="text-4xl font-bold text-primary">

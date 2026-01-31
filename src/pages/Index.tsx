@@ -15,6 +15,7 @@ import { optimizePlanForMonth } from '../utils/optimizationEngine';
 import type { OptimizedPlan } from '../utils/types';
 
 import { isSameDay, isWeekend } from "date-fns";
+import { parseShareableURL } from '../utils/shareUtils';
 
 const Index = () => {
   // Current date for default values
@@ -28,7 +29,7 @@ const Index = () => {
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
 
   // State for holidays and optimization results
-  const [holidays, setHolidays] = useState(getPhilippineHolidays());
+  const [holidays, setHolidays] = useState(getPhilippineHolidays(selectedYear));
   const [customHolidays, setCustomHolidays] = useState<Date[]>([]);
   const [optimizedPlan, setOptimizedPlan] = useState<OptimizedPlan | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -76,6 +77,15 @@ const Index = () => {
 
   // Initialize with example optimization
   useEffect(() => {
+    // Parse URL parameters for shared configuration
+    const sharedConfig = parseShareableURL();
+    if (sharedConfig) {
+      if (sharedConfig.maxWfhPerWeek !== undefined) setMaxWfhPerWeek(sharedConfig.maxWfhPerWeek);
+      if (sharedConfig.totalLeaves !== undefined) setTotalLeaves(sharedConfig.totalLeaves);
+      if (sharedConfig.selectedMonth !== undefined) setSelectedMonth(sharedConfig.selectedMonth);
+      if (sharedConfig.selectedYear !== undefined) setSelectedYear(sharedConfig.selectedYear);
+    }
+    
     handleOptimize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -105,6 +115,15 @@ const Index = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customHolidays]);
+
+  // Update holidays when year changes
+  useEffect(() => {
+    setHolidays(getPhilippineHolidays(selectedYear));
+    if (optimizedPlan) {
+      handleOptimize();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYear]);
 
   // Get current month and date string
   const currentMonthName = getMonthName(currentDate.getMonth());
@@ -164,11 +183,15 @@ const Index = () => {
             selectedMonth={getMonthName(selectedMonth)}
             holidays={holidays}
             customHolidays={customHolidays}
+            month={selectedMonth}
+            year={selectedYear}
+            maxWfhPerWeek={maxWfhPerWeek}
+            totalLeaves={totalLeaves}
           />
         </div>
         
         <footer className="mt-10 text-center text-sm text-muted-foreground">
-  <p>Philippine Holiday Optimizer | Data based on 2025 Philippine holidays</p>
+  <p>Philippine Holiday Optimizer | Data based on 2026 Philippine holidays</p>
   <div className="mt-2 flex flex-col md:flex-row justify-center items-center gap-2">
     <span>
       Built with <span role="img" aria-label="love">❤️</span> by <a

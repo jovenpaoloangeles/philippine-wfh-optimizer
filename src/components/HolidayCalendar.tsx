@@ -3,7 +3,7 @@ import React from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWeekend } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Holiday, isHoliday } from '@/utils/holidayUtils';
+import { Holiday, isHoliday, getHolidayDescription } from '@/utils/holidayUtils';
 
 interface HolidayCalendarProps {
   month: number;
@@ -89,6 +89,14 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
               const isLeaveDay = leaveDates.some(date => date && isSameDay(date, day));
               const isWfhDay = wfhDates.some(date => date && isSameDay(date, day));
               
+              // Get holiday description for tooltip
+              const holidayDesc = holiday ? getHolidayDescription(holiday.name) : null;
+              const tooltipText = holidayDesc 
+                ? `${holiday.name}\n\n${holidayDesc.description}${holidayDesc.historical ? '\n\nHistorical Note: ' + holidayDesc.historical : ''}`
+                : isCustomHoliday 
+                  ? "Custom Holiday (click to remove)"
+                  : "Click to add custom holiday";
+              
               let cellClass = "h-14 p-1 border rounded-md relative cursor-pointer hover:bg-muted/50";
               
               if (holiday) {
@@ -110,15 +118,18 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
                   onClick={() => {
                     if (onDateClick) onDateClick(day);
                   }}
-                  title={isCustomHoliday ? "Custom Holiday (click to remove)" : "Click to add custom holiday"}
+                  title={tooltipText}
                 >
                   <div className="text-right text-sm">{format(day, 'd')}</div>
                   
                   {holiday && holiday.name && (
-                    <Badge variant="outline" className={`
-                      absolute bottom-1 left-1 right-1 text-xs justify-center
-                      ${holiday.isSpecial ? 'bg-accent text-accent-foreground' : 'bg-secondary text-secondary-foreground'}
-                    `}>
+                    <Badge 
+                      variant={holiday.isSpecial ? "default" : "secondary"}
+                      className={`
+                        absolute bottom-1 left-1 right-1 text-xs justify-center
+                        ${holiday.isSpecial ? 'bg-accent text-accent-foreground' : 'bg-secondary text-secondary-foreground'}
+                      `}
+                    >
                       {holiday.name.length > 10
                         ? `${holiday.name.substring(0, 10)}...`
                         : holiday.name}

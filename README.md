@@ -1,6 +1,6 @@
 # Philippine Holiday Optimizer 🇵🇭
 
-A web application designed to help users in the Philippines strategically plan their leave days and work-from-home (WFH) schedule around public holidays to maximize consecutive time off. It visualizes holidays for a selected month and year (currently focused on 2025 data) and provides an optimized schedule based on user preferences.
+A web application designed to help users in the Philippines strategically plan their leave days and work-from-home (WFH) schedule around public holidays to maximize consecutive time off. It visualizes holidays for a selected month and year (currently focused on 2026 data) and provides an optimized schedule based on user preferences.
 
 ![Philippine Holiday Optimizer Screenshot](public/Screenshot.jpeg)
 
@@ -12,7 +12,7 @@ A web application designed to help users in the Philippines strategically plan t
 *   **User Configuration:**
     *   Set the maximum number of WFH days allowed per week.
     *   Input the total number of available leave credits.
-    *   Select the target month and year (currently defaults and data focus on 2025).
+    *   Select the target month and year (currently defaults and data focus on 2026).
 *   **Optimization Results:**
     *   Calculates the maximum number of consecutive days off achievable with the plan.
     *   Shows the total number of days off (weekends + holidays + leave + WFH).
@@ -22,9 +22,9 @@ A web application designed to help users in the Philippines strategically plan t
 
 ## How it Works
 
-The optimizer uses a scoring system based on the 2025 Philippine holiday list:
+The optimizer uses a scoring system based on the 2026 Philippine holiday list:
 
-1.  **Holiday Data:** Uses a predefined list of 2025 Regular and Special Non-working holidays.
+1.  **Holiday Data:** Uses a predefined list of 2026 Regular and Special Non-working holidays.
 2.  **Leave Day Scoring:** Potential workdays are scored based on their potential to create long weekends or bridge gaps:
     *   Days adjacent (immediately before/after) to weekends or holidays get higher scores.
     *   "Bridge days" (workdays falling between two off-days like a weekend and a holiday) receive the highest scores.
@@ -33,7 +33,7 @@ The optimizer uses a scoring system based on the 2025 Philippine holiday list:
 4.  **WFH Allocation:** Remaining workdays are considered for WFH. The optimizer prioritizes days that are strategically beneficial (e.g., adjacent to off days) and distributes them across the weeks, respecting the user's maximum WFH days per week limit.
 5.  **Metrics Calculation:** Calculates the longest consecutive block of off-days (weekends, holidays, leave, WFH) and the total number of off-days in the month based on the generated plan.
 
-*Note: The current holiday data and optimization logic are based on the year 2025.*
+*Note: The current holiday data and optimization logic are based on the year 2026.*
 
 ## Technology Stack
 

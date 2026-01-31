@@ -51,8 +51,8 @@ export const optimizePlanForMonth = (
   });
 
   // Initialize tracking arrays
-  let leaveDates: Date[] = [];
-  let wfhDates: Date[] = [];
+  const leaveDates: Date[] = [];
+  const wfhDates: Date[] = [];
 
   // MAIN ALLOCATION LOOP: Unified resource allocation
   while (leavesRemaining > 0 || Array.from(wfhSlotsRemainingByWeek.values()).some(slots => slots > 0)) {

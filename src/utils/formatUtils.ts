@@ -17,5 +17,5 @@ export const getFormattedDateRange = (dates: Date[]): string => {
  * @returns Full month name (e.g., "January")
  */
 export const getMonthName = (month: number): string => {
-  return new Date(2025, month, 1).toLocaleString('default', { month: 'long' });
+  return new Date(new Date().getFullYear(), month, 1).toLocaleString('default', { month: 'long' });
 };
