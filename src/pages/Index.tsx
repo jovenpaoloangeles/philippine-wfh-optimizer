@@ -11,10 +11,10 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { getPhilippineHolidays } from '../utils/philippineHolidays';
 import { getMonthName } from '../utils/formatUtils';
 import { isHoliday } from '../utils/holidayDetection';
-import { optimizePlanForMonth } from '../utils/optimizationEngine';
-import type { OptimizedPlan } from '../utils/types';
+import { optimizePlanForMonth, optimizePlanForPeriod } from '../utils/optimizationEngine';
+import type { OptimizedPlan, MultiMonthOptimizedPlan } from '../utils/types';
 
-import { isSameDay, isWeekend } from "date-fns";
+import { isSameDay, isWeekend, addMonths, startOfDay } from "date-fns";
 import { parseShareableURL } from '../utils/shareUtils';
 
 const Index = () => {
@@ -27,6 +27,7 @@ const Index = () => {
   const [totalLeaves, setTotalLeaves] = useState<number>(5);
   const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth()); // Current month
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [optimizationMonths, setOptimizationMonths] = useState<number>(3); // Default 3 months
 
   // State for holidays and optimization results
   const [holidays, setHolidays] = useState(getPhilippineHolidays(selectedYear));
@@ -36,6 +37,9 @@ const Index = () => {
 
   // State for user-used leave dates
   const [userLeaveDates, setUserLeaveDates] = useState<Date[]>([]);
+
+  // State for manual WFH dates
+  const [manualWfhDates, setManualWfhDates] = useState<Date[]>([]);
 
   // Combine Philippine holidays with custom holidays
   const getAllHolidays = () => {
@@ -47,26 +51,46 @@ const Index = () => {
     return [...holidays, ...customHolidayObjects];
   };
 
-  // Run optimization
+  // Run optimization using multi-month period
   const handleOptimize = async (customLeaveDates?: Date[]) => {
     setIsOptimizing(true);
     try {
       // Add small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const plan = optimizePlanForMonth(
-        selectedMonth,
-        selectedYear,
+      const today = startOfDay(new Date());
+      const endDate = addMonths(today, optimizationMonths);
+      
+      const plan = optimizePlanForPeriod(
+        today,
+        endDate,
         maxWfhPerWeek,
         totalLeaves,
-        getAllHolidays()
+        getAllHolidays(),
+        "A",
+        manualWfhDates
       );
       
-      setOptimizedPlan(plan);
+      // Create an OptimizedPlan for the currently displayed month from the multi-month plan
+      const currentMonthPlan: OptimizedPlan = {
+        month: selectedMonth,
+        year: selectedYear,
+        leaveDates: plan.leaveDates.filter(d => d.getMonth() === selectedMonth && d.getFullYear() === selectedYear),
+        wfhDates: plan.wfhDates.filter(d => d.getMonth() === selectedMonth && d.getFullYear() === selectedYear),
+        manualWfhDates: plan.manualWfhDates.filter(d => d.getMonth() === selectedMonth && d.getFullYear() === selectedYear),
+        totalDaysOff: plan.totalDaysOff,
+        longestStreak: plan.longestStreak,
+        leavesUsed: plan.leavesUsed,
+        leavesRemaining: plan.leavesRemaining,
+        wfhDaysUsed: plan.wfhDaysUsed,
+        strategy: plan.strategy
+      };
+      
+      setOptimizedPlan(currentMonthPlan);
       if (customLeaveDates) {
         setUserLeaveDates(customLeaveDates);
       }
-      toast.success(`Schedule optimized for ${getMonthName(selectedMonth)} ${selectedYear}`);
+      toast.success(`Schedule optimized for next ${optimizationMonths} month${optimizationMonths > 1 ? 's' : ''}`);
     } catch (error) {
       console.error("Optimization failed:", error);
       toast.error("Failed to optimize schedule. Please try again.");
@@ -108,13 +132,31 @@ const Index = () => {
     }
   };
 
-  // Auto-reoptimize when custom holidays change
+  // Handler for double-clicking a date - toggles manual WFH
+  const handleDateDoubleClick = (date: Date) => {
+    // Check if this date is already a manual WFH date
+    const isManualWfh = manualWfhDates.some(d => isSameDay(d, date));
+    
+    if (isManualWfh) {
+      // Remove manual WFH
+      const updated = manualWfhDates.filter(d => !isSameDay(d, date));
+      setManualWfhDates(updated);
+    } else {
+      // Add manual WFH (only if it's not a weekend, holiday, or leave day)
+      if (!isWeekend(date) && !isHoliday(date, holidays)) {
+        const updated = [...manualWfhDates, date];
+        setManualWfhDates(updated);
+      }
+    }
+  };
+
+  // Auto-reoptimize when custom holidays or manual WFH dates change
   useEffect(() => {
     if (optimizedPlan) {
       handleOptimize();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customHolidays]);
+  }, [customHolidays, manualWfhDates]);
 
   // Update holidays when year changes
   useEffect(() => {
@@ -158,7 +200,9 @@ const Index = () => {
               ]}
               wfhDates={optimizedPlan?.wfhDates || []}
               customHolidays={customHolidays}
+              manualWfhDates={manualWfhDates}
               onDateClick={handleDateClick}
+              onDateDoubleClick={handleDateDoubleClick}
             />
           </div>
           
@@ -172,6 +216,8 @@ const Index = () => {
               setSelectedMonth={setSelectedMonth}
               selectedYear={selectedYear}
               setSelectedYear={setSelectedYear}
+              optimizationMonths={optimizationMonths}
+              setOptimizationMonths={setOptimizationMonths}
               onOptimize={handleOptimize}
             />
           </div>

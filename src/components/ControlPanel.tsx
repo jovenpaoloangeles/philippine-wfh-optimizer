@@ -17,6 +17,8 @@ interface ControlPanelProps {
   setSelectedMonth: (month: number) => void;
   selectedYear: number;
   setSelectedYear: (year: number) => void;
+  optimizationMonths: number;
+  setOptimizationMonths: (months: number) => void;
   onOptimize: () => void;
 }
 
@@ -29,6 +31,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   setSelectedMonth,
   selectedYear,
   setSelectedYear,
+  optimizationMonths,
+  setOptimizationMonths,
   onOptimize
 }) => {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -59,6 +63,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
     if (selectedYear < currentYear - 2 || selectedYear > currentYear + 7) {
       errors.push("Please select a valid year");
+    }
+
+    if (optimizationMonths < 1 || optimizationMonths > 12) {
+      errors.push("Optimization range must be between 1 and 12 months");
     }
 
     setValidationErrors(errors);
@@ -97,7 +105,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const handleMonthChange = (value: string) => {
     setSelectedMonth(parseInt(value));
-    // Auto-optimize when month changes
     if (validateInputs()) {
       onOptimize();
     }
@@ -105,7 +112,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const handleYearChange = (value: string) => {
     setSelectedYear(parseInt(value));
-    // Auto-optimize when year changes
+    if (validateInputs()) {
+      onOptimize();
+    }
+  };
+
+  const handleOptimizationMonthsChange = (value: number) => {
+    setOptimizationMonths(value);
     if (validateInputs()) {
       onOptimize();
     }
@@ -185,6 +198,24 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <Label htmlFor="range-slider">Optimization Range</Label>
+            <span className="text-sm font-medium text-primary">{optimizationMonths} months</span>
+          </div>
+          <Slider 
+            id="range-slider"
+            min={1} 
+            max={6} 
+            step={1} 
+            value={[optimizationMonths]}
+            onValueChange={(value) => handleOptimizationMonthsChange(value[0])}
+          />
+          <p className="text-xs text-muted-foreground">
+            Optimize schedule across {optimizationMonths} month{optimizationMonths > 1 ? 's' : ''} starting from today
+          </p>
         </div>
         
         {validationErrors.length > 0 && (

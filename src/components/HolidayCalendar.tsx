@@ -12,7 +12,9 @@ interface HolidayCalendarProps {
   leaveDates: Date[];
   wfhDates: Date[];
   customHolidays?: Date[];
+  manualWfhDates?: Date[];
   onDateClick?: (date: Date) => void;
+  onDateDoubleClick?: (date: Date) => void;
 }
 
 const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
@@ -22,7 +24,9 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
   leaveDates,
   wfhDates,
   customHolidays = [],
-  onDateClick
+  manualWfhDates = [],
+  onDateClick,
+  onDateDoubleClick
 }) => {
   try {
     // Validate inputs
@@ -88,14 +92,18 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
               const isCustomHoliday = customHolidays.some(date => date && isSameDay(date, day));
               const isLeaveDay = leaveDates.some(date => date && isSameDay(date, day));
               const isWfhDay = wfhDates.some(date => date && isSameDay(date, day));
+              const isManualWfh = manualWfhDates.some(date => date && isSameDay(date, day));
+              const isOptimizerWfh = isWfhDay && !isManualWfh;
               
               // Get holiday description for tooltip
               const holidayDesc = holiday ? getHolidayDescription(holiday.name) : null;
-              const tooltipText = holidayDesc 
+              let tooltipText = holidayDesc 
                 ? `${holiday.name}\n\n${holidayDesc.description}${holidayDesc.historical ? '\n\nHistorical Note: ' + holidayDesc.historical : ''}`
                 : isCustomHoliday 
                   ? "Custom Holiday (click to remove)"
-                  : "Click to add custom holiday";
+                  : isManualWfh
+                    ? "Manual WFH (double-click to remove)"
+                    : "Click to add custom holiday, double-click to add WFH";
               
               let cellClass = "h-14 p-1 border rounded-md relative cursor-pointer hover:bg-muted/50";
               
@@ -105,7 +113,9 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
                 cellClass += " bg-orange-500/20 border-orange-500/40";
               } else if (isLeaveDay) {
                 cellClass += " bg-secondary/30";
-              } else if (isWfhDay) {
+              } else if (isManualWfh) {
+                cellClass += " bg-blue-400/30 border-blue-400/40";
+              } else if (isOptimizerWfh) {
                 cellClass += " bg-primary/30";
               } else if (isWeekend(day)) {
                 cellClass += " bg-muted/30";
@@ -117,6 +127,9 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
                   className={cellClass}
                   onClick={() => {
                     if (onDateClick) onDateClick(day);
+                  }}
+                  onDoubleClick={() => {
+                    if (onDateDoubleClick) onDateDoubleClick(day);
                   }}
                   title={tooltipText}
                 >
@@ -148,7 +161,13 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
                     </Badge>
                   )}
                   
-                  {isWfhDay && !holiday && !isLeaveDay && !isCustomHoliday && (
+                  {isManualWfh && !holiday && !isLeaveDay && !isCustomHoliday && (
+                    <Badge className="absolute bottom-1 left-1 right-1 text-xs justify-center bg-blue-500 text-white">
+                      WFH (M)
+                    </Badge>
+                  )}
+                  
+                  {isOptimizerWfh && !holiday && !isLeaveDay && !isCustomHoliday && (
                     <Badge className="absolute bottom-1 left-1 right-1 text-xs justify-center bg-primary text-primary-foreground">
                       WFH
                     </Badge>
