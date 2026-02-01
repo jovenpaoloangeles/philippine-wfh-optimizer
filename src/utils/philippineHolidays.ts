@@ -89,6 +89,8 @@ export const getPhilippineHolidays = (year: number = new Date().getFullYear()): 
     { date: new Date(year, 0, 1), name: "New Year's Day", isSpecial: false },
     { date: easterHolidays.maundyThursday, name: "Maundy Thursday", isSpecial: false },
     { date: easterHolidays.goodFriday, name: "Good Friday", isSpecial: false },
+    { date: new Date(year, 2, 17), name: "Chinese New Year", isSpecial: false },
+    { date: new Date(year, 2, 25), name: "EDSA People Power Revolution Anniversary", isSpecial: false },
     { date: new Date(year, 3, 9), name: "Araw ng Kagitingan", isSpecial: false },
     { date: new Date(year, 4, 1), name: "Labor Day", isSpecial: false },
     { date: new Date(year, 5, 12), name: "Independence Day", isSpecial: false },
@@ -104,12 +106,8 @@ export const getPhilippineHolidays = (year: number = new Date().getFullYear()): 
     { date: new Date(year, 11, 31), name: "New Year's Eve", isSpecial: true },
     
     // Additional Special Non-working Days
-    { date: new Date(year, 1, 17), name: "Chinese New Year", isSpecial: true },
     { date: easterHolidays.blackSaturday, name: "Black Saturday", isSpecial: true },
     { date: new Date(year, 10, 2), name: "All Souls' Day", isSpecial: true },
     { date: new Date(year, 11, 24), name: "Christmas Eve", isSpecial: true },
-    
-    // Special Working Day (for 2026, regular holiday in other years)
-    { date: new Date(year, 1, 25), name: "EDSA People Power Revolution Anniversary", isSpecial: false },
   ];
 };
