@@ -4,11 +4,6 @@ export interface Holiday {
   isSpecial: boolean;
 }
 
-export interface LeaveDetail {
-  date: Date;
-  type: "full";
-}
-
 export interface OptimizedPlan {
   month: number;
   year: number;

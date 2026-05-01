@@ -7,8 +7,8 @@ import { format } from 'date-fns';
  */
 export const getFormattedDateRange = (dates: Date[]): string => {
   if (dates.length === 0) return "None";
-  
-  return dates.map(date => format(date, "d")).join(", ");
+
+  return dates.map(date => format(date, "MMM d")).join(", ");
 };
 
 /**

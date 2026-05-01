@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import type { OptimizedPlan } from './types';
+import { MAX_LEAVES, MAX_WFH_PER_WEEK } from '../components/ControlPanel';
 
 /**
  * Generate a shareable URL with current configuration
@@ -49,14 +50,14 @@ export const parseShareableURL = (): {
   
   if (params.has('wfh')) {
     const wfh = parseInt(params.get('wfh')!);
-    if (!isNaN(wfh) && wfh >= 0 && wfh <= 5) {
+    if (!isNaN(wfh) && wfh >= 0 && wfh <= MAX_WFH_PER_WEEK) {
       config.maxWfhPerWeek = wfh;
     }
   }
   
   if (params.has('leaves')) {
     const leaves = parseInt(params.get('leaves')!);
-    if (!isNaN(leaves) && leaves >= 0 && leaves <= 30) {
+    if (!isNaN(leaves) && leaves >= 0 && leaves <= MAX_LEAVES) {
       config.totalLeaves = leaves;
     }
   }

@@ -1,5 +1,5 @@
 // Re-export types
-export type { Holiday, LeaveDetail, OptimizedPlan } from './types';
+export type { Holiday, OptimizedPlan } from './types';
 
 // Re-export main functions
 export { getPhilippineHolidays } from './philippineHolidays';
@@ -10,7 +10,7 @@ export { getFormattedDateRange, getMonthName } from './formatUtils';
 export { optimizePlanForMonth } from './optimizationEngine';
 
 // Re-export calendar functions
-export { generateICS, downloadICS, exportToCalendar } from './calendarExport';
+export { generateICS, downloadICS, exportToCalendar, generateICSForPeriod, exportToCalendarForPeriod } from './calendarExport';
 
 // Re-export share functions
 export { generateShareableURL, parseShareableURL, copyShareableURL, getShareText } from './shareUtils';

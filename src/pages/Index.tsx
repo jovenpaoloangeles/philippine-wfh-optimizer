@@ -1,8 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
+import { Undo2 } from 'lucide-react';
 import HolidayCalendar from '@/components/HolidayCalendar';
 import ControlPanel from '@/components/ControlPanel';
 import ResultsPanel from '@/components/ResultsPanel';
@@ -14,8 +16,9 @@ import { isHoliday } from '../utils/holidayDetection';
 import { optimizePlanForMonth, optimizePlanForPeriod } from '../utils/optimizationEngine';
 import type { OptimizedPlan, MultiMonthOptimizedPlan } from '../utils/types';
 
-import { isSameDay, isWeekend, addMonths, startOfDay } from "date-fns";
+import { isSameDay, isWeekend, addMonths, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { parseShareableURL } from '../utils/shareUtils';
+import { calculateConsecutiveDaysOff } from '../utils/calculationUtils';
 
 const Index = () => {
   // Current date for default values
@@ -28,11 +31,14 @@ const Index = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth()); // Current month
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [optimizationMonths, setOptimizationMonths] = useState<number>(3); // Default 3 months
+  const [maxLeavesPerMonth, setMaxLeavesPerMonth] = useState<number>(30); // Default no limit
+  const [strategy, setStrategy] = useState<"A" | "B">("A"); // Default WFH-first
 
   // State for holidays and optimization results
   const [holidays, setHolidays] = useState(getPhilippineHolidays(selectedYear));
   const [customHolidays, setCustomHolidays] = useState<Date[]>([]);
   const [optimizedPlan, setOptimizedPlan] = useState<OptimizedPlan | null>(null);
+  const [fullPlan, setFullPlan] = useState<MultiMonthOptimizedPlan | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
   // State for user-used leave dates
@@ -40,6 +46,23 @@ const Index = () => {
 
   // State for manual WFH dates
   const [manualWfhDates, setManualWfhDates] = useState<Date[]>([]);
+
+  // Undo stack for calendar actions
+  const [undoStack, setUndoStack] = useState<{ customHolidays: Date[]; manualWfhDates: Date[] }[]>([]);
+
+  const pushUndo = useCallback(() => {
+    setUndoStack(prev => [...prev.slice(-19), { customHolidays: [...customHolidays], manualWfhDates: [...manualWfhDates] }]);
+  }, [customHolidays, manualWfhDates]);
+
+  const handleUndo = useCallback(() => {
+    setUndoStack(prev => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setCustomHolidays(last.customHolidays);
+      setManualWfhDates(last.manualWfhDates);
+      return prev.slice(0, -1);
+    });
+  }, []);
 
   // Combine Philippine holidays with custom holidays
   const getAllHolidays = () => {
@@ -52,34 +75,59 @@ const Index = () => {
   };
 
   // Run optimization using multi-month period
-  const handleOptimize = async (customLeaveDates?: Date[]) => {
+  const handleOptimize = async (customLeaveDates?: Date[], overrideConfig?: {
+    maxWfhPerWeek?: number;
+    totalLeaves?: number;
+    selectedMonth?: number;
+    selectedYear?: number;
+    optimizationMonths?: number;
+  }) => {
     setIsOptimizing(true);
     try {
       // Add small delay to show loading state
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
+      const wfh = overrideConfig?.maxWfhPerWeek ?? maxWfhPerWeek;
+      const leaves = overrideConfig?.totalLeaves ?? totalLeaves;
+      const months = overrideConfig?.optimizationMonths ?? optimizationMonths;
+      const month = overrideConfig?.selectedMonth ?? selectedMonth;
+      const year = overrideConfig?.selectedYear ?? selectedYear;
+
       const today = startOfDay(new Date());
-      const endDate = addMonths(today, optimizationMonths);
-      
+      const endDate = addMonths(today, months);
+
       const plan = optimizePlanForPeriod(
         today,
         endDate,
-        maxWfhPerWeek,
-        totalLeaves,
+        wfh,
+        leaves,
         getAllHolidays(),
-        "A",
-        manualWfhDates
+        strategy,
+        manualWfhDates,
+        maxLeavesPerMonth
       );
       
-      // Create an OptimizedPlan for the currently displayed month from the multi-month plan
+      // Store the full multi-month plan
+      setFullPlan(plan);
+
+      // Compute month-scoped metrics for the displayed month
+      const monthLeaveDates = plan.leaveDates.filter(d => d.getMonth() === month && d.getFullYear() === year);
+      const monthWfhDates = plan.wfhDates.filter(d => d.getMonth() === month && d.getFullYear() === year);
+      const monthManualWfh = plan.manualWfhDates.filter(d => d.getMonth() === month && d.getFullYear() === year);
+      const monthStart = startOfMonth(new Date(year, month));
+      const monthEnd = endOfMonth(monthStart);
+      const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+      const monthDaysOff = calculateConsecutiveDaysOff(monthDays, getAllHolidays(), monthLeaveDates, [...monthWfhDates, ...monthManualWfh]);
+      const monthLongestStreak = monthDaysOff.length > 0 ? Math.max(...monthDaysOff.map(p => p.length)) : 0;
+
       const currentMonthPlan: OptimizedPlan = {
-        month: selectedMonth,
-        year: selectedYear,
-        leaveDates: plan.leaveDates.filter(d => d.getMonth() === selectedMonth && d.getFullYear() === selectedYear),
-        wfhDates: plan.wfhDates.filter(d => d.getMonth() === selectedMonth && d.getFullYear() === selectedYear),
-        manualWfhDates: plan.manualWfhDates.filter(d => d.getMonth() === selectedMonth && d.getFullYear() === selectedYear),
-        totalDaysOff: plan.totalDaysOff,
-        longestStreak: plan.longestStreak,
+        month,
+        year,
+        leaveDates: monthLeaveDates,
+        wfhDates: monthWfhDates,
+        manualWfhDates: monthManualWfh,
+        totalDaysOff: monthDaysOff,
+        longestStreak: monthLongestStreak,
         leavesUsed: plan.leavesUsed,
         leavesRemaining: plan.leavesRemaining,
         wfhDaysUsed: plan.wfhDaysUsed,
@@ -90,7 +138,7 @@ const Index = () => {
       if (customLeaveDates) {
         setUserLeaveDates(customLeaveDates);
       }
-      toast.success(`Schedule optimized for next ${optimizationMonths} month${optimizationMonths > 1 ? 's' : ''}`);
+      toast.success(`Schedule optimized for next ${months} month${months > 1 ? 's' : ''}`);
     } catch (error) {
       console.error("Optimization failed:", error);
       toast.error("Failed to optimize schedule. Please try again.");
@@ -99,32 +147,30 @@ const Index = () => {
     }
   };
 
-  // Initialize with example optimization
+  // Initialize with shared config or defaults
   useEffect(() => {
-    // Parse URL parameters for shared configuration
     const sharedConfig = parseShareableURL();
     if (sharedConfig) {
       if (sharedConfig.maxWfhPerWeek !== undefined) setMaxWfhPerWeek(sharedConfig.maxWfhPerWeek);
       if (sharedConfig.totalLeaves !== undefined) setTotalLeaves(sharedConfig.totalLeaves);
       if (sharedConfig.selectedMonth !== undefined) setSelectedMonth(sharedConfig.selectedMonth);
       if (sharedConfig.selectedYear !== undefined) setSelectedYear(sharedConfig.selectedYear);
+      handleOptimize(undefined, sharedConfig);
+    } else {
+      handleOptimize();
     }
-    
-    handleOptimize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handler for clicking a date in the calendar - now toggles custom holidays
   const handleDateClick = (date: Date) => {
-    // Check if this date is already a custom holiday
+    pushUndo();
     const isCustomHoliday = customHolidays.some(d => isSameDay(d, date));
-    
+
     if (isCustomHoliday) {
-      // Remove custom holiday
       const updated = customHolidays.filter(d => !isSameDay(d, date));
       setCustomHolidays(updated);
     } else {
-      // Add custom holiday (only if it's not a weekend or existing Philippine holiday)
       if (!isWeekend(date) && !isHoliday(date, holidays)) {
         const updated = [...customHolidays, date];
         setCustomHolidays(updated);
@@ -134,15 +180,13 @@ const Index = () => {
 
   // Handler for double-clicking a date - toggles manual WFH
   const handleDateDoubleClick = (date: Date) => {
-    // Check if this date is already a manual WFH date
+    pushUndo();
     const isManualWfh = manualWfhDates.some(d => isSameDay(d, date));
-    
+
     if (isManualWfh) {
-      // Remove manual WFH
       const updated = manualWfhDates.filter(d => !isSameDay(d, date));
       setManualWfhDates(updated);
     } else {
-      // Add manual WFH (only if it's not a weekend, holiday, or leave day)
       if (!isWeekend(date) && !isHoliday(date, holidays)) {
         const updated = [...manualWfhDates, date];
         setManualWfhDates(updated);
@@ -175,7 +219,19 @@ const Index = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-background p-4 md:p-6">
       {/* Top bar with theme toggle */}
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-2 mb-4">
+          {undoStack.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleUndo}
+              className="flex items-center gap-1"
+              title="Undo last calendar action"
+            >
+              <Undo2 className="h-4 w-4" />
+              Undo
+            </Button>
+          )}
           <ThemeToggle />
         </div>
 
@@ -187,6 +243,14 @@ const Index = () => {
         </div>
 
         <HolidayInfo />
+
+        {selectedYear !== 2025 && selectedYear !== 2026 && (
+          <Alert className="mb-6">
+            <AlertDescription>
+              Holiday data for {selectedYear} is approximate and based on the 2026 template. Actual holidays may differ once the government issues the official proclamation.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2">
@@ -218,6 +282,10 @@ const Index = () => {
               setSelectedYear={setSelectedYear}
               optimizationMonths={optimizationMonths}
               setOptimizationMonths={setOptimizationMonths}
+              maxLeavesPerMonth={maxLeavesPerMonth}
+              setMaxLeavesPerMonth={setMaxLeavesPerMonth}
+              strategy={strategy}
+              setStrategy={setStrategy}
               onOptimize={handleOptimize}
             />
           </div>
@@ -226,6 +294,7 @@ const Index = () => {
         <div className="mb-6">
           <ResultsPanel
             plan={optimizedPlan}
+            fullPlan={fullPlan}
             selectedMonth={getMonthName(selectedMonth)}
             holidays={holidays}
             customHolidays={customHolidays}
@@ -233,6 +302,7 @@ const Index = () => {
             year={selectedYear}
             maxWfhPerWeek={maxWfhPerWeek}
             totalLeaves={totalLeaves}
+            optimizationMonths={optimizationMonths}
           />
         </div>
         

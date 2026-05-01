@@ -179,7 +179,8 @@ export const optimizePlanForPeriod = (
   totalLeaves: number,
   holidays: Holiday[],
   strategy: "A" | "B" = "A",
-  manualWfhDates: Date[] = []
+  manualWfhDates: Date[] = [],
+  maxLeavesPerMonth: number = Infinity
 ): MultiMonthOptimizedPlan => {
   // Input validation
   if (!(startDate instanceof Date) || !(endDate instanceof Date)) {
@@ -263,30 +264,32 @@ export const optimizePlanForPeriod = (
     const candidateWeek = getISOWeek(bestCandidate);
     const wfhSlotsAvailable = wfhSlotsRemainingByWeek.get(candidateWeek) || 0;
 
+    // Check per-month leave cap
+    const candidateMonth = bestCandidate.getMonth();
+    const candidateYear = bestCandidate.getFullYear();
+    const leavesInMonth = leaveDates.filter(d => d.getMonth() === candidateMonth && d.getFullYear() === candidateYear).length;
+    const canUseLeave = leavesRemaining > 0 && leavesInMonth < maxLeavesPerMonth;
+
     let resourceAssigned = false;
 
     // Strategy A: WFH-first (prioritize WFH as it's more constrained)
     if (strategy === "A") {
       if (wfhSlotsAvailable > 0) {
-        // Assign as WFH day
         wfhDates.push(bestCandidate);
         wfhSlotsRemainingByWeek.set(candidateWeek, wfhSlotsAvailable - 1);
         resourceAssigned = true;
-      } else if (leavesRemaining > 0) {
-        // Assign as Leave day
+      } else if (canUseLeave) {
         leaveDates.push(bestCandidate);
         leavesRemaining--;
         resourceAssigned = true;
       }
     } else {
       // Strategy B: Leave-first
-      if (leavesRemaining > 0) {
-        // Assign as Leave day
+      if (canUseLeave) {
         leaveDates.push(bestCandidate);
         leavesRemaining--;
         resourceAssigned = true;
       } else if (wfhSlotsAvailable > 0) {
-        // Assign as WFH day
         wfhDates.push(bestCandidate);
         wfhSlotsRemainingByWeek.set(candidateWeek, wfhSlotsAvailable - 1);
         resourceAssigned = true;

@@ -74,7 +74,7 @@ export const getPhilippineHolidays = (year: number = new Date().getFullYear()): 
       { date: new Date(2025, 7, 21), name: "Ninoy Aquino Day", isSpecial: true },
       { date: new Date(2025, 10, 1), name: "All Saints' Day", isSpecial: true },
       { date: new Date(2025, 10, 2), name: "All Souls' Day", isSpecial: true },
-      { date: new Date(2025, 11, 8), name: "Feast of the Immaculate Conception", isSpecial: true },
+      { date: new Date(2025, 11, 8), name: "Feast of the Immaculate Conception of Mary", isSpecial: true },
       { date: new Date(2025, 11, 24), name: "Christmas Eve", isSpecial: true },
       { date: new Date(2025, 11, 31), name: "New Year's Eve", isSpecial: true },
     ];

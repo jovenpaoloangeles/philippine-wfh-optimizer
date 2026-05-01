@@ -19,13 +19,11 @@ export const isHoliday = (date: Date, holidays: Holiday[]): Holiday | undefined 
  */
 export const isBridgeOpportunity = (date: Date, holidays: Holiday[]): boolean => {
   if (isFriday(date)) {
-    // Friday - check if Monday is a holiday
     const monday = addDays(date, 3);
-    return holidays.some(h => isSameDay(h.date, monday)) || isHoliday(monday, holidays) !== undefined;
+    return isHoliday(monday, holidays) !== undefined;
   } else if (isMonday(date)) {
-    // Monday - check if Friday is a holiday
     const friday = addDays(date, -3);
-    return holidays.some(h => isSameDay(h.date, friday)) || isHoliday(friday, holidays) !== undefined;
+    return isHoliday(friday, holidays) !== undefined;
   }
   return false;
 };

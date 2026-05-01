@@ -12,7 +12,7 @@ export const scoreDateForLeave = (date: Date, holidays: Holiday[]): number => {
   let score = 0;
 
   // Skip weekends and holidays (we don't need to take leave on these days)
-  if (isWeekend(date) || isHoliday(date, holidays)) {
+  if (isWeekend(date) || isHoliday(date, holidays) !== undefined) {
     return -1;
   }
 

@@ -17,7 +17,7 @@ const HolidayInfo: React.FC = () => {
     <Card className="mb-6">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Philippine Holiday Optimizer</CardTitle>

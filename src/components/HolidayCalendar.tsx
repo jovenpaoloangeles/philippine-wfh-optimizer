@@ -63,7 +63,7 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
         <CardTitle className="text-center">{format(monthStart, 'MMMM yyyy')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-1" role="grid" aria-label={`Calendar for ${format(monthStart, 'MMMM yyyy')}`}>
           {/* Calendar header with day names */}
           {dayNames.map((day, index) => (
             <div 
@@ -97,13 +97,29 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
               
               // Get holiday description for tooltip
               const holidayDesc = holiday ? getHolidayDescription(holiday.name) : null;
-              let tooltipText = holidayDesc 
+              let tooltipText = holidayDesc
                 ? `${holiday.name}\n\n${holidayDesc.description}${holidayDesc.historical ? '\n\nHistorical Note: ' + holidayDesc.historical : ''}`
-                : isCustomHoliday 
+                : isCustomHoliday
                   ? "Custom Holiday (click to remove)"
                   : isManualWfh
                     ? "Manual WFH (double-click to remove)"
                     : "Click to add custom holiday, double-click to add WFH";
+
+              // Build accessible label for screen readers
+              const dateStr = format(day, 'MMMM d, yyyy');
+              const ariaLabel = holiday
+                ? `${dateStr} - ${holiday.name} (${holiday.isSpecial ? 'Special Non-working Holiday' : 'Regular Holiday'})`
+                : isCustomHoliday
+                  ? `${dateStr} - Custom Holiday`
+                  : isLeaveDay
+                    ? `${dateStr} - Leave Day`
+                    : isManualWfh
+                      ? `${dateStr} - Manual Work From Home`
+                      : isOptimizerWfh
+                        ? `${dateStr} - Work From Home`
+                        : isWeekend(day)
+                          ? `${dateStr} - Weekend`
+                          : dateStr;
               
               let cellClass = "h-14 p-1 border rounded-md relative cursor-pointer hover:bg-muted/50";
               
@@ -132,6 +148,8 @@ const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
                     if (onDateDoubleClick) onDateDoubleClick(day);
                   }}
                   title={tooltipText}
+                  aria-label={ariaLabel}
+                  role="gridcell"
                 >
                   <div className="text-right text-sm">{format(day, 'd')}</div>
                   
